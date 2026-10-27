@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#16181d">
+  <title>DocMate · téléphone</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="phone">
+  <header class="phone-head">
+    <strong>DocMate</strong>
+    <span id="status" class="pill">Connexion…</span>
+  </header>
+
+  <main class="phone-main">
+    <label class="big-btn">
+      <input id="in-photo" type="file" accept="image/*" capture="environment" hidden>
+      <span>📸</span><b data-i18n="phone.photo">Photo</b>
+    </label>
+    <label class="big-btn">
+      <input id="in-video" type="file" accept="video/*" capture="environment" hidden>
+      <span>🎬</span><b data-i18n="phone.video">Vidéo</b>
+    </label>
+    <label class="big-btn alt">
+      <input id="in-gallery" type="file" accept="image/*,video/*" multiple hidden>
+      <span>🖼</span><b data-i18n="phone.gallery">Galerie</b>
+    </label>
+    <button id="btn-marker" class="big-btn alt"><span>📍</span><b data-i18n="phone.marker">Repère</b></button>
+    <button id="btn-live" class="big-btn wide alt"><span>📡</span><b data-i18n="phone.live">Diffuser la caméra en direct</b></button>
+    <video id="live" autoplay muted playsinline hidden></video>
+    <form id="note-form" class="note-form wide">
+      <input id="note" type="text" data-i18n-ph="phone.notePh" placeholder="Note écrite…">
+      <button class="btn" data-i18n="phone.send">Envoyer</button>
+    </form>
+    <ul id="sent" class="sent wide"></ul>
+  </main>
+
+  <script type="module" src="js/phone.js"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "name": "DocMate",
+  "short_name": "DocMate",
+  "description": "Assistant de documentation pour makers : capture, narration, puis rédaction en Markdown par une IA.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#121418",
+  "theme_color": "#16181d",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

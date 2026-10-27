@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#16181d">
+  <title>DocMate</title>
+  <meta name="description" content="Assistant de documentation pour makers : webcams, photos, captures, narration, puis un agent IA rédige la doc en Markdown.">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><img src="icon.svg" alt="" width="26" height="26"><strong>DocMate</strong></div>
+
+    <div class="session-box">
+      <span id="session-name" class="session-name" data-i18n="session.none">Aucune session</span>
+      <span id="session-timer" class="timer">00:00:00</span>
+      <button id="btn-session" class="btn primary" data-i18n="session.start">Démarrer une session</button>
+    </div>
+
+    <nav class="actions">
+      <button id="btn-narrate" class="btn" title="N"><span class="level"><i></i></span><span data-i18n="act.narrate">Narration</span></button>
+      <button id="btn-photo" class="btn" title="P">📸 <span data-i18n="act.photo">Photo</span></button>
+      <button id="btn-clip" class="btn" title="V">⏺ <span data-i18n="act.clip">Clip</span></button>
+      <button id="btn-marker" class="btn" title="M">📍 <span data-i18n="act.marker">Repère</span></button>
+      <button id="btn-screen" class="btn" title="S">🖥 <span data-i18n="act.screen">Capture</span></button>
+      <button id="btn-phone" class="btn">📱 <span data-i18n="act.phone">Téléphone</span></button>
+      <button id="btn-pip" class="btn" data-i18n-title="act.pipTitle" title="Barre flottante">🪟</button>
+      <button id="btn-generate" class="btn accent">✨ <span data-i18n="act.generate">Générer la doc</span></button>
+      <button id="btn-sessions" class="btn ghost" data-i18n-title="act.sessions" title="Sessions">🗂</button>
+      <button id="btn-settings" class="btn ghost" data-i18n-title="act.settings" title="Réglages">⚙</button>
+    </nav>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <main class="layout">
+    <section class="cams-wrap">
+      <div id="cams" class="cams"></div>
+      <div class="cams-empty" id="cams-empty">
+        <p data-i18n="cams.empty">Aucune caméra ouverte.</p>
+      </div>
+      <div class="cams-tools">
+        <button id="btn-add-cam" class="btn">＋ <span data-i18n="cams.add">Ajouter une caméra</span></button>
+        <span class="hint" data-i18n="cams.hint">Raccourcis (page active) : P photo · V clip · M repère · N narration · S capture</span>
+      </div>
+    </section>
+
+    <aside class="timeline-wrap">
+      <div class="tl-head">
+        <h2 data-i18n="tl.title">Timeline</h2>
+        <span id="tl-count" class="pill">0</span>
+      </div>
+      <ol id="timeline" class="timeline"></ol>
+      <form id="note-form" class="note-form">
+        <input id="note-input" type="text" data-i18n-ph="tl.notePh" placeholder="Note écrite (Entrée)…" autocomplete="off">
+      </form>
+      <p class="hint drop-hint" data-i18n="tl.drop">Glissez des photos, vidéos ou captures n'importe où dans la page pour les ajouter.</p>
+    </aside>
+  </main>
+
+  <div id="drop-overlay" class="drop-overlay" hidden><span data-i18n="tl.dropNow">Déposer pour ajouter à la session</span></div>
+
+  <!-- Téléphone -->
+  <dialog id="dlg-phone" class="dlg">
+    <form method="dialog" class="dlg-head"><h2 data-i18n="phone.title">Connecter un téléphone</h2><button class="btn ghost">✕</button></form>
+    <div class="phone-pair">
+      <div id="qr" class="qr"></div>
+      <div>
+        <p data-i18n="phone.how">Scannez ce QR code avec l'appareil photo du téléphone. La page DocMate s'ouvre et se connecte directement à ce PC.</p>
+        <p><a id="phone-url" target="_blank" rel="noopener"></a></p>
+        <p id="phone-status" class="pill"></p>
+        <p class="hint" data-i18n="phone.privacy">Les photos passent directement du téléphone au PC (WebRTC). Le serveur PeerJS ne sert qu'à la mise en relation.</p>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Génération -->
+  <dialog id="dlg-gen" class="dlg wide">
+    <form method="dialog" class="dlg-head"><h2 data-i18n="gen.title">Générer la documentation</h2><button class="btn ghost">✕</button></form>
+    <div id="gen-setup" class="grid2">
+      <label><span data-i18n="gen.profile">Profil de sortie</span><select id="gen-profile"></select></label>
+      <label><span data-i18n="gen.project">Projet</span><input id="gen-project" list="gen-projects" autocomplete="off"><datalist id="gen-projects"></datalist></label>
+      <label class="span2"><span data-i18n="gen.subject">Sujet (facultatif)</span><input id="gen-title" data-i18n-ph="gen.subjectPh" placeholder="ex. Canon intégré au robot"></label>
+      <label class="span2"><span data-i18n="gen.instructions">Consignes pour l'IA (facultatif)</span><textarea id="gen-instructions" rows="2" data-i18n-ph="gen.instructionsPh" placeholder="ex. Mets l'accent sur le câblage, ajoute une liste de matériel."></textarea></label>
+      <div class="span2 site-row">
+        <span id="site-label" class="hint"></span>
+        <button id="btn-site" type="button" class="btn" data-i18n="gen.pickSite">Choisir le dossier du site…</button>
+      </div>
+      <div class="span2 row-end">
+        <span id="gen-summary" class="hint"></span>
+        <button id="btn-run" type="button" class="btn accent">✨ <span data-i18n="gen.run">Générer</span></button>
+      </div>
+    </div>
+    <pre id="gen-log" class="log" hidden></pre>
+    <div id="gen-result" hidden>
+      <div class="grid2">
+        <label class="span2"><span data-i18n="gen.docTitle">Titre</span><input id="d-title"></label>
+        <label><span>Slug</span><input id="d-slug"></label>
+        <label><span data-i18n="gen.state">État</span><input id="d-state"></label>
+        <label class="span2"><span>Description</span><input id="d-description"></label>
+        <label class="span2"><span data-i18n="gen.next">Prochaine étape</span><input id="d-next"></label>
+        <label class="span2"><span data-i18n="gen.body">Corps (Markdown) · les marqueurs [[media:ID]] seront remplacés</span><textarea id="d-body" rows="16" class="mono"></textarea></label>
+      </div>
+      <div id="d-media" class="media-strip"></div>
+      <div class="row-end">
+        <button id="btn-regen" type="button" class="btn ghost" data-i18n="gen.regen">Régénérer</button>
+        <button id="btn-zip" type="button" class="btn">⬇ <span data-i18n="gen.zip">Télécharger le ZIP</span></button>
+        <button id="btn-write" type="button" class="btn primary">💾 <span data-i18n="gen.write">Écrire dans le dossier du site</span></button>
+      </div>
+      <pre id="gen-done" class="log ok" hidden></pre>
+    </div>
+  </dialog>
+
+  <!-- Sessions -->
+  <dialog id="dlg-sessions" class="dlg">
+    <form method="dialog" class="dlg-head"><h2 data-i18n="sess.title">Sessions</h2><button class="btn ghost">✕</button></form>
+    <ul id="sessions-list" class="sessions-list"></ul>
+  </dialog>
+
+  <!-- Réglages -->
+  <dialog id="dlg-settings" class="dlg wide">
+    <form method="dialog" class="dlg-head"><h2 data-i18n="set.title">Réglages</h2><button class="btn ghost">✕</button></form>
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-tab="ai" data-i18n="set.ai">IA</button>
+      <button class="tab" data-tab="stt" data-i18n="set.stt">Transcription</button>
+      <button class="tab" data-tab="out" data-i18n="set.out">Profil de sortie</button>
+      <button class="tab" data-tab="cap" data-i18n="set.cap">Capture</button>
+    </div>
+
+    <section class="tab-pane grid2" data-pane="ai">
+      <label class="span2"><span data-i18n="set.provider">Fournisseur</span>
+        <select data-k="agent.provider">
+          <option value="anthropic">Anthropic · Claude</option>
+          <option value="openai">OpenAI (ou API compatible)</option>
+          <option value="ollama">Ollama (local, gratuit)</option>
+        </select></label>
+      <label data-show="agent.provider=anthropic"><span data-i18n="set.model">Modèle</span><input data-k="agent.anthropicModel"></label>
+      <label data-show="agent.provider=anthropic"><span data-i18n="set.effort">Effort</span>
+        <select data-k="agent.anthropicEffort"><option>low</option><option>medium</option><option>high</option><option>xhigh</option><option>max</option></select></label>
+      <label class="span2" data-show="agent.provider=anthropic"><span data-i18n="set.key">Clé API</span><input type="password" data-k="agent.anthropicKey" autocomplete="off" placeholder="sk-ant-…"></label>
+      <label data-show="agent.provider=openai"><span data-i18n="set.model">Modèle</span><input data-k="agent.openaiModel"></label>
+      <label data-show="agent.provider=openai"><span data-i18n="set.baseUrl">URL de l'API (vide = OpenAI)</span><input data-k="agent.openaiBaseUrl" placeholder="https://…/v1"></label>
+      <label class="span2" data-show="agent.provider=openai"><span data-i18n="set.key">Clé API</span><input type="password" data-k="agent.openaiKey" autocomplete="off" placeholder="sk-…"></label>
+      <label data-show="agent.provider=ollama"><span>URL Ollama</span><input data-k="agent.ollamaUrl"></label>
+      <label data-show="agent.provider=ollama"><span data-i18n="set.modelVision">Modèle (avec vision)</span><input data-k="agent.ollamaModel"></label>
+      <p class="hint span2" data-show="agent.provider=ollama" data-i18n="set.ollamaHint">Ollama doit autoriser cette page : lancez-le avec OLLAMA_ORIGINS réglé sur l'adresse de DocMate (voir le README).</p>
+      <label><span data-i18n="set.maxImages">Images max envoyées</span><input type="number" min="1" max="200" data-k="agent.maxImages"></label>
+      <label><span data-i18n="set.imagePx">Taille des images pour l'IA (px)</span><input type="number" min="256" max="2048" step="64" data-k="agent.imagePx"></label>
+      <p class="hint span2" data-i18n="set.keysHint">Les clés sont stockées uniquement dans ce navigateur et envoyées seulement au fournisseur choisi.</p>
+    </section>
+
+    <section class="tab-pane grid2" data-pane="stt" hidden>
+      <label class="span2"><span data-i18n="set.provider">Fournisseur</span>
+        <select data-k="transcription.provider">
+          <option value="openai">API Whisper (OpenAI ou compatible, ex. Groq)</option>
+          <option value="local">Whisper dans le navigateur (local, gratuit, plus lent)</option>
+          <option value="none">Aucune (pas de narration)</option>
+        </select></label>
+      <label data-show="transcription.provider=openai"><span data-i18n="set.model">Modèle</span><input data-k="transcription.openaiModel"></label>
+      <label data-show="transcription.provider=openai"><span data-i18n="set.baseUrl">URL de l'API (vide = OpenAI)</span><input data-k="transcription.openaiBaseUrl" placeholder="https://api.groq.com/openai/v1"></label>
+      <label class="span2" data-show="transcription.provider=openai"><span data-i18n="set.sttKey">Clé API (vide = clé OpenAI de l'onglet IA)</span><input type="password" data-k="transcription.openaiKey" autocomplete="off"></label>
+      <label class="span2" data-show="transcription.provider=local"><span data-i18n="set.localModel">Modèle local</span>
+        <select data-k="transcription.localModel">
+          <option value="onnx-community/whisper-tiny">whisper-tiny (~40 Mo, rapide)</option>
+          <option value="onnx-community/whisper-base">whisper-base (~80 Mo)</option>
+          <option value="onnx-community/whisper-small">whisper-small (~250 Mo, meilleur)</option>
+        </select></label>
+      <label><span data-i18n="set.language">Langue de la narration</span><input data-k="transcription.language" placeholder="fr"></label>
+    </section>
+
+    <section class="tab-pane" data-pane="out" hidden>
+      <div class="row">
+        <select id="prof-select"></select>
+        <button id="prof-dup" class="btn" type="button" data-i18n="set.dup">Dupliquer</button>
+        <button id="prof-export" class="btn" type="button" data-i18n="set.export">Exporter</button>
+        <label class="btn"><input id="prof-import" type="file" accept=".json" hidden><span data-i18n="set.import">Importer</span></label>
+        <button id="prof-reset" class="btn ghost" type="button" data-i18n="set.reset">Réinitialiser</button>
+      </div>
+      <div class="grid2" id="prof-form">
+        <label class="span2"><span data-i18n="set.pName">Nom</span><input data-p="name"></label>
+        <label><span data-i18n="set.pDoc">Chemin du document</span><input data-p="docPath" class="mono"></label>
+        <label><span data-i18n="set.pAssets">Dossier des médias</span><input data-p="assetsDir" class="mono"></label>
+        <label><span data-i18n="set.pUrl">URL des médias dans le Markdown</span><input data-p="assetsUrl" class="mono"></label>
+        <label><span data-i18n="set.pProjects">Dossier des projets (liste, facultatif)</span><input data-p="projectsDir" class="mono"></label>
+        <label><span data-i18n="set.pProjectFile">Fiche projet à dater (facultatif)</span><input data-p="projectFile" class="mono"></label>
+        <label><span data-i18n="set.pWebPx">Taille max des images publiées (px, 0 = original)</span><input type="number" data-p="webMaxPx"></label>
+        <label class="span2"><span>Front matter / en-tête</span><textarea data-p="frontMatter" rows="6" class="mono"></textarea></label>
+        <label><span data-i18n="set.pImg">Gabarit image</span><textarea data-p="imageTemplate" rows="3" class="mono"></textarea></label>
+        <label><span data-i18n="set.pVid">Gabarit vidéo</span><textarea data-p="videoTemplate" rows="3" class="mono"></textarea></label>
+        <label class="span2"><span data-i18n="set.pStyle">Consignes de style</span><textarea data-p="styleGuide" rows="4"></textarea></label>
+        <div class="span2">
+          <span class="lbl" data-i18n="set.pExamples">Exemples de docs déjà écrites (l'IA imite leur style)</span>
+          <ul id="prof-examples" class="chips"></ul>
+          <label class="btn"><input id="prof-ex-add" type="file" accept=".md,.markdown,.txt" multiple hidden><span data-i18n="set.addExamples">Ajouter des fichiers .md</span></label>
+          <span class="hint" data-i18n="set.autoExamples">Avec un dossier de site choisi, les docs récentes du même projet sont ajoutées automatiquement.</span>
+        </div>
+        <p class="hint span2" data-i18n="set.vars">Variables : {project} {date} {slug} {title} {description} {state} {next_step} {session} · gabarits média : {url} {alt} {caption} {mime}</p>
+      </div>
+    </section>
+
+    <section class="tab-pane grid2" data-pane="cap" hidden>
+      <label><span data-i18n="set.mic">Micro</span><select id="mic-select" data-k="capture.micId"></select></label>
+      <label class="check"><input type="checkbox" data-k="capture.clipAudio"><span data-i18n="set.clipAudio">Son dans les clips vidéo</span></label>
+      <label><span data-i18n="set.camW">Largeur caméra souhaitée</span><input type="number" data-k="capture.width"></label>
+      <label><span data-i18n="set.camH">Hauteur caméra souhaitée</span><input type="number" data-k="capture.height"></label>
+      <div class="span2 site-row">
+        <span id="shots-label" class="hint"></span>
+        <button id="btn-shots" type="button" class="btn" data-i18n="set.pickShots">Surveiller un dossier de captures…</button>
+      </div>
+      <p class="hint span2" data-i18n="set.shotsHint">Pendant une session, chaque nouvelle capture d'écran enregistrée dans ce dossier (raccourcis de votre système : Impr. écran, etc.) est ajoutée à la timeline. Chrome, Edge, Opera uniquement.</p>
+      <label><span>Langue / Language</span><select data-k="lang"><option value="">Auto</option><option value="fr">Français</option><option value="en">English</option></select></label>
+    </section>
+  </dialog>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
