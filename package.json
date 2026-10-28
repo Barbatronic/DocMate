@@ -1,0 +1,15 @@
+{
+  "name": "docmate",
+  "private": true,
+  "type": "module",
+  "description": "DocMate : l'application n'a ni build ni dépendance. Ce fichier ne sert qu'au serveur de développement et aux tests.",
+  "scripts": {
+    "serve": "node tests/serve.mjs",
+    "test": "playwright test --grep-invert @network",
+    "test:all": "playwright test",
+    "test:phone": "playwright test --grep @network"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
+  }
+}
