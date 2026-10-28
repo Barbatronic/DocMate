@@ -1,12 +1,12 @@
 // Export du brouillon : assemble le .md et les médias selon le profil, puis
 // écrit dans le dossier du site (Chromium) ou produit un ZIP (tous navigateurs).
 import { fill, frontMatter, slugify } from './profiles.js';
-import { getBlob } from './store.js';
-import { shrink, extOf } from './media.js';
+import { getBlob } from '../core/store.js';
+import { shrink, extOf } from '../capture/media.js';
 
 const FFLATE = 'https://cdn.jsdelivr.net/npm/fflate@0.8.3/+esm';
 
-const fmtDate = (ms) => {
+export const fmtDate = (ms) => {
   const d = new Date(ms);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
@@ -16,21 +16,52 @@ const fmtDuration = (ms) => {
   return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ' ' + String(m % 60).padStart(2, '0') : ''}`;
 };
 
+// Temps de travail (ms) : du premier au dernier élément, sans les pauses de plus de 30 min.
+// Une session peut s'étaler sur plusieurs jours : les nuits ne comptent pas.
+const PAUSE_MS = 30 * 60 * 1000;
+export function workTime(events) {
+  const spans = events.map((e) => [e.t, e.tEnd || e.t]).sort((a, b) => a[0] - b[0]);
+  let total = 0;
+  let cur = null;
+  for (const [a, b] of spans) {
+    if (cur && a - cur[1] <= PAUSE_MS) cur[1] = Math.max(cur[1], b);
+    else {
+      if (cur) total += cur[1] - cur[0];
+      cur = [a, b];
+    }
+  }
+  return cur ? total + cur[1] - cur[0] : total;
+}
+
+// Durée affichée dans le document, ex. « 1 h 05 ».
+export const sessionDuration = (session, events) => fmtDuration(workTime(events));
+
+// Date du document : celle du dernier élément (le jour où le travail s'est terminé).
+export const docDate = (session, events) => fmtDate(events.at(-1)?.t ?? session.started);
+
 const joinPath = (...p) => p.filter(Boolean).join('/').replace(/\/+/g, '/');
 
 // Retourne { docPath, files: [{path, data: Blob|string}], vars }.
-export async function assemble(profile, session, events, d) {
-  const last = events.at(-1);
+// Avec `root` (dossier du site), rien d'existant n'est écrasé : le slug prend un suffixe -2, -3...
+// (et le dossier des médias avec lui), et un média qui tomberait sur un fichier existant est renommé.
+export async function assemble(profile, session, events, d, root = null) {
   const vars = {
     project: slugify(session.project || '') || 'divers',
-    date: fmtDate(session.started),
+    date: docDate(session, events),
     slug: slugify(d.slug || d.title),
     title: d.title,
     description: d.description,
     state: d.state,
     next_step: d.next_step,
-    session: fmtDuration((session.ended || last?.tEnd || last?.t || session.started) - session.started),
+    session: sessionDuration(session, events),
   };
+  if (root) {
+    const base = vars.slug;
+    const taken = async () =>
+      (profile.docPath.includes('{slug}') && (await exists(root, fill(profile.docPath, vars)))) ||
+      (profile.assetsDir.includes('{slug}') && (await exists(root, fill(profile.assetsDir, vars), 'dir')));
+    for (let n = 2; await taken(); n++) vars.slug = `${base}-${n}`;
+  }
   const assetsDir = fill(profile.assetsDir, vars);
   const assetsUrl = fill(profile.assetsUrl, vars);
   const byId = Object.fromEntries(events.map((e) => [e.id, e]));
@@ -49,7 +80,7 @@ export async function assemble(profile, session, events, d) {
     let base = slugify(m.filename || id);
     const ext = extOf(blob.type || ev.mime || '');
     let name = `${base}.${ext}`;
-    for (let n = 2; used.has(name); n++) name = `${base}-${n}.${ext}`;
+    for (let n = 2; used.has(name) || (root && (await exists(root, joinPath(assetsDir, name)))); n++) name = `${base}-${n}.${ext}`;
     used.add(name);
     files.push({ path: joinPath(assetsDir, name), data: blob });
     const tpl = video ? profile.videoTemplate : profile.imageTemplate;
@@ -62,10 +93,11 @@ export async function assemble(profile, session, events, d) {
   return { docPath, files, vars, text };
 }
 
+// Remplacements asynchrones, un à la fois : le choix des noms de fichiers ne doit pas se chevaucher.
 async function replaceAsync(str, re, fn) {
-  const jobs = [];
-  str.replace(re, (...a) => { jobs.push(fn(...a)); return ''; });
-  const out = await Promise.all(jobs);
+  const matches = [...str.matchAll(re)];
+  const out = [];
+  for (const m of matches) out.push(await fn(...m));
   let i = 0;
   return str.replace(re, () => out[i++]);
 }
@@ -83,32 +115,37 @@ async function dirFor(root, path, create = true) {
   return dir;
 }
 
-async function exists(root, path) {
+async function exists(root, path, kind = 'file') {
   try {
-    const parts = path.split('/');
+    const parts = path.split('/').filter(Boolean);
     const dir = await dirFor(root, parts.slice(0, -1).join('/'), false);
-    await dir.getFileHandle(parts.at(-1));
+    await (kind === 'dir' ? dir.getDirectoryHandle(parts.at(-1)) : dir.getFileHandle(parts.at(-1)));
     return true;
   } catch {
     return false;
   }
 }
 
-export async function writeToDir(root, assembled, profile) {
-  // Ne jamais écraser un document existant : suffixe -2, -3...
-  let { docPath } = assembled;
-  for (let n = 2; await exists(root, docPath); n++) docPath = assembled.docPath.replace(/(\.\w+)$/, `-${n}$1`);
-  assembled.files[0].path = docPath;
-  const written = [];
-  for (const f of assembled.files) {
+// Écrit des fichiers [{path, data}] sous `root`, en créant les dossiers.
+export async function writeFiles(root, files) {
+  for (const f of files) {
     const parts = f.path.split('/');
     const dir = await dirFor(root, parts.slice(0, -1).join('/'));
-    const fh = await dir.getFileHandle(parts.at(-1), { create: true });
-    const w = await fh.createWritable();
+    const w = await (await dir.getFileHandle(parts.at(-1), { create: true })).createWritable();
     await w.write(f.data);
     await w.close();
-    written.push(f.path);
   }
+  return files.map((f) => f.path);
+}
+
+// `assembled` doit venir de assemble(..., root) : les chemins sont alors libres.
+export async function writeToDir(root, assembled, profile) {
+  // Filet de sécurité si le chemin du document ne contient pas {slug}.
+  const { docPath } = assembled;
+  let path = docPath;
+  for (let n = 2; await exists(root, path); n++) path = docPath.replace(/(\.\w+)$/, `-${n}$1`);
+  assembled.files[0].path = path;
+  const written = await writeFiles(root, assembled.files);
   if (profile.projectFile) {
     const p = fill(profile.projectFile, assembled.vars);
     if (await touchProjectDate(root, p, assembled.vars.date)) written.push(p + ' (date mise à jour)');
@@ -166,20 +203,21 @@ export async function recentDocs(root, folderPath, n = 3) {
 }
 
 // ---------- ZIP ----------
-export async function downloadZip(assembled) {
+export async function zipFiles(files, filename) {
   const { zipSync } = await import(FFLATE);
   const entries = {};
-  for (const f of assembled.files) {
+  for (const f of files) {
     const data = typeof f.data === 'string' ? new TextEncoder().encode(f.data) : new Uint8Array(await f.data.arrayBuffer());
     // Pas de recompression des médias (déjà compressés).
     entries[f.path] = [data, { level: typeof f.data === 'string' ? 6 : 0 }];
   }
-  const zip = zipSync(entries);
   const a = Object.assign(document.createElement('a'), {
-    href: URL.createObjectURL(new Blob([zip], { type: 'application/zip' })),
-    download: `docmate-${assembled.vars.date}-${assembled.vars.slug}.zip`,
+    href: URL.createObjectURL(new Blob([zipSync(entries)], { type: 'application/zip' })),
+    download: filename,
   });
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-  return assembled.files.map((f) => f.path);
+  return files.map((f) => f.path);
 }
+
+export const downloadZip = (assembled) => zipFiles(assembled.files, `docmate-${assembled.vars.date}-${assembled.vars.slug}.zip`);

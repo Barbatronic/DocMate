@@ -1,8 +1,9 @@
 // Agent de rédaction : timeline horodatée (paroles + médias) -> brouillon structuré (JSON).
 // Fournisseurs : Anthropic (Claude), OpenAI ou compatible, Ollama (local).
-import { S, profile } from './settings.js';
-import { getBlob } from './store.js';
-import { shrink } from './media.js';
+import { S, profile } from '../core/settings.js';
+import { getBlob } from '../core/store.js';
+import { shrink } from '../capture/media.js';
+import { workTime } from '../output/export.js';
 
 const ANTHROPIC_SDK = 'https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@1.3.0/+esm';
 const OPENAI_SDK = 'https://cdn.jsdelivr.net/npm/openai@7.45.1/+esm';
@@ -93,14 +94,20 @@ export async function buildTimeline(session, events, onProgress, { embed = true 
   if (embed) while (count() > p.maxImages && perClip > 1) perClip--;
   const keepEvery = embed ? Math.max(1, Math.ceil(count() / p.maxImages)) : 1;
 
-  const date = new Date(session.started);
+  // Heure de chaque élément ; la date aussi si la session s'étale sur plusieurs jours.
+  const first = new Date(items[0]?.t ?? session.started);
+  const multiDay = items.length && new Date(items.at(-1).t).toDateString() !== first.toDateString();
+  const stampOf = (ms) => {
+    const d = new Date(ms);
+    return (multiDay ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) + ' ' : '') + d.toLocaleTimeString('fr-FR');
+  };
   parts.push({
     text:
-      `SESSION du ${date.toLocaleDateString('fr-FR')} à ${date.toLocaleTimeString('fr-FR')}` +
+      `SESSION du ${first.toLocaleDateString('fr-FR')}` +
       (session.project ? `\nProjet : ${session.project}` : '') +
       (session.title ? `\nSujet indiqué par l'auteur : ${session.title}` : '') +
-      `\nDurée : ${hhmmss((session.ended || events.at(-1)?.tEnd || events.at(-1)?.t || session.started) - session.started)}` +
-      '\n\nTIMELINE (heure relative au début de la session) :',
+      `\nTemps de travail : ${hhmmss(workTime(events))}` +
+      `\n\nTIMELINE (heure de chaque élément${multiDay ? ', avec la date' : ''}) :`,
   });
 
   let speech = [];
@@ -109,8 +116,9 @@ export async function buildTimeline(session, events, onProgress, { embed = true 
     speech = [];
   };
   let i = 0;
+  let sent = 0;
   for (const it of items) {
-    const at = `[+${hhmmss(it.t - session.started)}]`;
+    const at = `[${stampOf(it.t)}]`;
     if (it.speech) { speech.push(`${at} PAROLE : ${it.speech}`); continue; }
     const ev = it.ev;
     if (ev.type === 'marker') { speech.push(`${at} REPÈRE${ev.text ? ' : ' + ev.text : ''}`); continue; }
@@ -119,21 +127,23 @@ export async function buildTimeline(session, events, onProgress, { embed = true 
     flush();
     const dur = ev.tEnd ? ` · durée ${Math.round((ev.tEnd - ev.t) / 1000)} s` : '';
     const caption = ev.text ? ` · note de l'auteur : ${ev.text}` : '';
-    parts.push({ text: `${at} ${KIND[ev.type]} id=${ev.id} · source : ${ev.source || '?'}${dur}${caption}` });
     const ids = ev.type === 'clip' || ev.type === 'phone_video'
       ? (ev.keyframes?.length ? ev.keyframes.slice(0, perClip) : ev.thumbId ? [ev.thumbId] : [])
       : [ev.blobId];
+    // Budget dépassé : une image sur `keepEvery` est jointe ; l'IA est prévenue de celles qu'elle ne voit pas.
+    const kept = embed ? ids.filter(() => !(i++ % keepEvery)) : ids;
+    const unseen = embed && ids.length && !kept.length ? " · image non jointe (budget d'images), à n'utiliser que si le texte la justifie" : '';
+    parts.push({ text: `${at} ${KIND[ev.type]} id=${ev.id} · source : ${ev.source || '?'}${dur}${caption}${unseen}` });
     if (!embed) {
       parts.push({ ref: { blobId: ev.blobId, ev, role: 'original' } });
       if (ids[0] !== ev.blobId) ids.forEach((bid, k) => parts.push({ ref: { blobId: bid, ev, role: `aperçu ${k + 1}` } }));
       continue;
     }
-    if (ev.type === 'clip' && ids.length) parts.push({ text: `(images extraites du clip ${ev.id})` });
-    for (const bid of ids) {
-      if (i++ % keepEvery) continue;
+    if (ev.type === 'clip' && kept.length) parts.push({ text: `(images extraites du clip ${ev.id})` });
+    for (const bid of kept) {
       const blob = await getBlob(bid);
       if (!blob) continue;
-      onProgress?.(`Préparation des images… ${i}`);
+      onProgress?.(`Préparation des images… ${++sent}`);
       const small = await shrink(blob, p.imagePx, 'image/jpeg', 0.8);
       parts.push({ image: { mime: 'image/jpeg', b64: await toB64(small) } });
     }

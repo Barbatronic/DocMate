@@ -3,40 +3,81 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#16181d">
+  <meta name="theme-color" content="#1f5fc0">
   <title>DocMate · téléphone</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/app.css">
 </head>
 <body class="phone">
   <header class="phone-head">
+    <img class="brand-mark" src="icon.svg" alt="">
     <strong>DocMate</strong>
     <span id="status" class="pill">Connexion…</span>
   </header>
 
   <main class="phone-main">
-    <label class="big-btn">
-      <input id="in-photo" type="file" accept="image/*" capture="environment" hidden>
-      <span>📸</span><b data-i18n="phone.photo">Photo</b>
-    </label>
-    <label class="big-btn">
-      <input id="in-video" type="file" accept="video/*" capture="environment" hidden>
-      <span>🎬</span><b data-i18n="phone.video">Vidéo</b>
-    </label>
-    <label class="big-btn alt">
-      <input id="in-gallery" type="file" accept="image/*,video/*" multiple hidden>
-      <span>🖼</span><b data-i18n="phone.gallery">Galerie</b>
-    </label>
-    <button id="btn-marker" class="big-btn alt"><span>📍</span><b data-i18n="phone.marker">Repère</b></button>
-    <button id="btn-live" class="big-btn wide alt"><span>📡</span><b data-i18n="phone.live">Diffuser la caméra en direct</b></button>
-    <video id="live" autoplay muted playsinline hidden></video>
-    <form id="note-form" class="note-form wide">
-      <input id="note" type="text" data-i18n-ph="phone.notePh" placeholder="Note écrite…">
-      <button class="btn" data-i18n="phone.send">Envoyer</button>
-    </form>
-    <ul id="sent" class="sent wide"></ul>
+    <!-- Télécommande : pilote le PC -->
+    <section class="card">
+      <div class="panel-header"><i data-icon="remote"></i><span data-i18n="phone.remote">Télécommande</span></div>
+      <div class="card-body">
+        <div class="remote-state">
+          <span id="r-dot" class="dot"></span>
+          <div class="meta">
+            <b id="r-session">…</b>
+            <small id="r-detail"></small>
+          </div>
+          <span id="r-timer" class="timer">00:00:00</span>
+        </div>
+        <div class="pad two">
+          <button id="r-narrate" class="pad-btn wide" data-cmd="narrate" disabled><i data-icon="mic"></i><span data-i18n="act.narrate">Narration</span></button>
+          <button id="r-photo" class="pad-btn" data-cmd="photo" disabled><i data-icon="photo"></i><span data-i18n="phone.pcPhoto">Photo PC</span></button>
+          <button id="r-clip" class="pad-btn" data-cmd="clip" disabled><i data-icon="clip"></i><span data-i18n="phone.pcClip">Clip PC</span></button>
+          <button id="r-marker" class="pad-btn" data-cmd="marker" disabled><i data-icon="marker"></i><span data-i18n="phone.marker">Repère</span></button>
+          <button id="r-screen" class="pad-btn" data-cmd="screen" disabled><i data-icon="screen"></i><span data-i18n="act.screen">Capture</span></button>
+        </div>
+        <p id="msg" class="phone-msg"></p>
+      </div>
+    </section>
+
+    <!-- Ce téléphone comme source : micro sans fil, caméra en direct -->
+    <section class="card">
+      <div class="panel-header"><i data-icon="phone"></i><span data-i18n="phone.thisPhone">Ce téléphone</span></div>
+      <div class="card-body">
+        <div class="pad two">
+          <button id="p-mic" class="pad-btn" disabled><i data-icon="mic"></i><span class="level"><i></i></span><span data-i18n="phone.mic">Micro sans fil</span><span class="sub" data-i18n="phone.micSub">le son part vers le PC</span></button>
+          <button id="p-live" class="pad-btn" disabled><i data-icon="live"></i><span data-i18n="phone.live">Caméra en direct</span><span class="sub" data-i18n="phone.liveSub">comme une webcam</span></button>
+        </div>
+        <video id="live" class="phone-live" autoplay muted playsinline hidden></video>
+      </div>
+    </section>
+
+    <!-- Envoi de photos, vidéos et notes -->
+    <section class="card">
+      <div class="panel-header"><i data-icon="send"></i><span data-i18n="phone.sendTitle">Envoyer au PC</span></div>
+      <div class="card-body">
+        <div class="pad">
+          <label class="pad-btn primary">
+            <input id="in-photo" type="file" accept="image/*" capture="environment" hidden>
+            <i data-icon="photo"></i><span data-i18n="phone.photo">Photo</span>
+          </label>
+          <label class="pad-btn">
+            <input id="in-video" type="file" accept="video/*" capture="environment" hidden>
+            <i data-icon="video"></i><span data-i18n="phone.video">Vidéo</span>
+          </label>
+          <label class="pad-btn">
+            <input id="in-gallery" type="file" accept="image/*,video/*" multiple hidden>
+            <i data-icon="image"></i><span data-i18n="phone.gallery">Galerie</span>
+          </label>
+        </div>
+        <form id="note-form" class="note-form" style="margin-top:10px">
+          <input id="note" type="text" data-i18n-ph="phone.notePh" placeholder="Note écrite…" autocomplete="off">
+          <button class="btn primary" data-i18n-title="phone.sendNote" title="Envoyer"><i data-icon="send"></i></button>
+        </form>
+        <ul id="sent" class="sent"></ul>
+      </div>
+    </section>
   </main>
 
-  <script type="module" src="js/phone.js"></script>
+  <script type="module" src="js/phone/page.js"></script>
 </body>
 </html>

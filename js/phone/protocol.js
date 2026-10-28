@@ -1,9 +1,14 @@
 // Protocole téléphone <-> PC sur un canal de données WebRTC (PeerJS).
 // Les médias vont directement d'un appareil à l'autre ; le serveur PeerJS ne sert qu'à la mise en relation.
 //
-// Messages : {kind:'hello', now} · {kind:'meta', id, type, t, mime, name, size, chunks}
-//            {kind:'chunk', id, i, data:ArrayBuffer} · {kind:'thumb', id, data} · {kind:'marker'|'note', t, text}
-//            {kind:'ack', id} (PC -> téléphone)
+// Messages téléphone -> PC :
+//   {kind:'hello', now, token} (premier message, jeton du QR code)
+//   {kind:'meta', id, type, t, mime, name, size, chunks} · {kind:'chunk', id, i, data:ArrayBuffer} · {kind:'thumb', id, data}
+//   {kind:'marker'|'note', t, text} · {kind:'cmd', id, action} (télécommande) · {kind:'stop', what:'mic'|'cam'}
+// Messages PC -> téléphone :
+//   {kind:'ack', id} · {kind:'denied'} (jeton refusé) · {kind:'result', id, ok, error} (réponse à cmd)
+//   {kind:'state', session, elapsed, narrating, clipping, count, cams, mic, share} (état pour la télécommande)
+// Appels média (téléphone -> PC), metadata {kind:'mic'|'cam', token, label} : micro sans fil, caméra en direct.
 
 export const PEERJS = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.5/+esm';
 const CHUNK = 64 * 1024;

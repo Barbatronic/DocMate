@@ -42,21 +42,39 @@ export const listSessions = async () =>
 export const putEvent = (e) => tx('events', 'readwrite', (st) => st.put(e));
 export const listEvents = async (sessionId) =>
   (await tx('events', 'readonly', (st) => st.index('session').getAll(sessionId))).sort((a, b) => a.t - b.t);
+export const countEvents = (sessionId) => tx('events', 'readonly', (st) => st.index('session').count(sessionId));
 
 export const putBlob = async (blob, id = uid('b')) => {
   await tx('blobs', 'readwrite', (st) => st.put(blob, id));
   return id;
 };
 export const getBlob = (id) => tx('blobs', 'readonly', (st) => st.get(id));
-const delBlob = (id) => tx('blobs', 'readwrite', (st) => st.delete(id));
 
-export async function deleteEvent(ev) {
-  for (const b of [ev.blobId, ev.thumbId, ...(ev.keyframes || [])].filter(Boolean)) await delBlob(b);
-  await tx('events', 'readwrite', (st) => st.delete(ev.id));
+// Blobs dont la clé commence par `prefix` (morceaux de narration en cours d'enregistrement).
+const prefixRange = (prefix) => IDBKeyRange.bound(prefix, prefix + '\uffff');
+export const listBlobKeys = (prefix) => tx('blobs', 'readonly', (st) => st.getAllKeys(prefixRange(prefix)));
+export const deleteBlobs = (prefix) => tx('blobs', 'readwrite', (st) => st.delete(prefixRange(prefix)));
+
+// Supprime des événements et leurs fichiers en une seule transaction.
+export async function deleteEvents(evs) {
+  const d = await db();
+  return new Promise((resolve, reject) => {
+    const t = d.transaction(['blobs', 'events'], 'readwrite');
+    const blobs = t.objectStore('blobs');
+    const events = t.objectStore('events');
+    for (const ev of evs) {
+      for (const b of [ev.blobId, ev.thumbId, ...(ev.keyframes || [])].filter(Boolean)) blobs.delete(b);
+      events.delete(ev.id);
+    }
+    t.oncomplete = () => resolve();
+    t.onerror = () => reject(t.error);
+  });
 }
 
+export const deleteEvent = (ev) => deleteEvents([ev]);
+
 export async function deleteSession(id) {
-  for (const ev of await listEvents(id)) await deleteEvent(ev);
+  await deleteEvents(await listEvents(id));
   await tx('sessions', 'readwrite', (st) => st.delete(id));
 }
 

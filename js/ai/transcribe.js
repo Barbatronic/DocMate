@@ -1,15 +1,22 @@
 // Transcription horodatée des segments de narration.
 // Retourne [{start, end, text}] en secondes depuis le début du segment.
-import { S } from './settings.js';
-import { extOf } from './media.js';
+import { S } from '../core/settings.js';
+import { extOf } from '../capture/media.js';
 import { explainOpenAIError } from './agent.js';
 
 const OPENAI_SDK = 'https://cdn.jsdelivr.net/npm/openai@7.45.1/+esm';
 
+// Whisper local : un seul worker, les transcriptions passent l'une après l'autre.
+let localQueue = Promise.resolve();
+
 export async function transcribe(blob, onProgress) {
   const cfg = S.transcription;
   if (cfg.provider === 'none') return [];
-  if (cfg.provider === 'local') return transcribeLocal(blob, onProgress);
+  if (cfg.provider === 'local') {
+    const job = localQueue.then(() => transcribeLocal(blob, onProgress));
+    localQueue = job.catch(() => {});
+    return job;
+  }
   return transcribeOpenAI(blob);
 }
 
@@ -34,18 +41,40 @@ async function transcribeOpenAI(blob) {
 }
 
 // Whisper dans le navigateur (transformers.js), dans un worker pour ne pas figer l'interface.
+// Version dans l'adresse du worker : le navigateur le garde en cache même après un rechargement forcé
+// de la page (il est créé plus tard). À incrémenter à chaque modification de whisper-worker.js.
+const WORKER_VERSION = 4;
 let worker;
-async function transcribeLocal(blob, onProgress) {
-  const ctx = new AudioContext({ sampleRate: 16000 });
-  const audio = (await ctx.decodeAudioData(await blob.arrayBuffer())).getChannelData(0);
-  ctx.close();
-  worker ??= new Worker(new URL('./whisper-worker.js', import.meta.url), { type: 'module' });
+let cpuOnly = false; // WebGPU a échoué une fois : processeur pour la suite de la session
+
+function ask(audio, onProgress) {
+  worker ??= new Worker(new URL(`./whisper-worker.js?v=${WORKER_VERSION}`, import.meta.url), { type: 'module' });
   return new Promise((resolve, reject) => {
     worker.onmessage = ({ data }) => {
       if (data.progress) onProgress?.(data.progress);
       else if (data.error) reject(new Error(data.error));
       else resolve(data.segments);
     };
-    worker.postMessage({ audio, model: S.transcription.localModel, language: S.transcription.language }, [audio.buffer]);
+    worker.onerror = (e) => reject(new Error(e.message || 'Whisper : le worker a planté.'));
+    // Copié (pas transféré) : on peut le renvoyer si le premier essai échoue.
+    worker.postMessage({ audio, model: S.transcription.localModel, language: S.transcription.language, cpuOnly });
   });
+}
+
+async function transcribeLocal(blob, onProgress) {
+  const ctx = new AudioContext({ sampleRate: 16000 });
+  const audio = (await ctx.decodeAudioData(await blob.arrayBuffer())).getChannelData(0);
+  ctx.close();
+  try {
+    return await ask(audio, onProgress);
+  } catch (e) {
+    // Le navigateur annonce un GPU qu'il ne peut pas fournir (fréquent sous Linux) : on relance
+    // un worker neuf, calcul sur le processeur.
+    if (cpuOnly || !/webgpu|gpu adapter|backend/i.test(e.message)) throw e;
+    cpuOnly = true;
+    worker.terminate();
+    worker = null;
+    onProgress?.('GPU inutilisable : calcul sur le processeur.');
+    return ask(audio, onProgress);
+  }
 }

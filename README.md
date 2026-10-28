@@ -8,7 +8,7 @@
 
 ## Comment ça marche
 
-1. **Démarrez une session** et ouvrez une ou plusieurs webcams.
+1. **Ouvrez DocMate** et une ou plusieurs webcams. Tout ce que vous capturez va dans la **session en cours**, que vous retrouvez à chaque ouverture, même le lendemain. Pour un nouveau sujet : **Nouvelle** ; pour reprendre un ancien : **Sessions › Ouvrir**. Donnez-lui un nom en cliquant dessus, sous le logo.
 2. **Travaillez en parlant.** Lancez la narration : le micro enregistre en continu. Prenez des photos (P), des clips (V), posez des repères (M) aux moments importants.
 3. **Ajoutez le reste** : photos et vidéos du téléphone (QR code), captures d'écran de la CAO, notes écrites, fichiers glissés dans la page.
 4. **Générez la doc.** Tout est horodaté sur une même timeline : l'IA sait que la photo de 14 h 32 illustre la phrase « là je serre la vis M3 ». Elle rédige, vous relisez, puis DocMate écrit le `.md` et les médias dans le dossier de votre site (ou vous donne un ZIP).
@@ -18,8 +18,9 @@
 | | |
 |---|---|
 | Webcams | Plusieurs à la fois, photo pleine résolution, clips vidéo (MP4 sous Chrome) avec images clés pour l'IA |
-| Narration | Enregistrement continu, découpé en segments de 10 min |
-| Téléphone | Scannez le QR code : photos, vidéos, repères et notes partent directement au PC (WebRTC). Ou diffusez la caméra du téléphone en direct comme une webcam de plus |
+| Cadrage PTZ | Pour les caméras pilotables (Elgato Facecam, Logitech MX Brio, Insta360 Link, Obsbot…) : déplacement, zoom, recentrage et 3 positions mémorisées par caméra. Navigateurs Chromium |
+| Narration | Enregistrement continu, découpé en segments de 10 min, sauvegardé toutes les 5 s : rien n'est perdu si l'onglet se ferme ou plante |
+| Téléphone | Scannez le QR code (lien privé, valable tant que l'onglet DocMate reste ouvert). Le téléphone devient une **télécommande** (narration, photo et clip des webcams, repère, capture), un **micro sans fil** pour la narration, une **caméra en direct**, et envoie ses photos, vidéos et notes directement au PC (WebRTC) |
 | Captures d'écran | Dossier surveillé (vos raccourcis habituels, ex. Impr. écran), bouton Capture (partage d'écran), coller (Ctrl+V), glisser-déposer |
 | Transcription | API Whisper (OpenAI, Groq ou compatible) ou **Whisper dans le navigateur** (gratuit, hors ligne) |
 | IA de rédaction | **Claude** (Anthropic), **OpenAI** ou API compatible, **Ollama** (local, gratuit), ou **export pour un agent** (Claude Code, Codex CLI…) pour utiliser un abonnement sans clé API |
@@ -77,7 +78,7 @@ Utilisez un modèle avec vision (ex. `qwen2.5vl:7b`, `llama3.2-vision`).
 
 ### Profils
 
-Variables utilisables dans les chemins et le front matter : `{project}` `{date}` `{slug}` `{title}` `{description}` `{state}` `{next_step}` `{session}`. Dans les gabarits de média : `{url}` `{alt}` `{caption}` `{mime}`.
+Variables utilisables dans les chemins et le front matter : `{project}` `{date}` `{slug}` `{title}` `{description}` `{state}` `{next_step}` `{session}` (temps de travail, sans les pauses de plus de 30 min). Dans les gabarits de média : `{url}` `{alt}` `{caption}` `{mime}`.
 
 Exemple (Jekyll, logs par projet) :
 
@@ -97,24 +98,49 @@ Les documents sont créés avec `published: false` : relisez avant de publier.
 
 ## Développement
 
-Aucune étape de build : HTML, CSS et modules JavaScript. Les bibliothèques (SDK Anthropic et OpenAI, PeerJS, fflate, transformers.js, qrcode-generator) sont chargées depuis jsDelivr avec une version figée.
+Aucune étape de build : HTML, CSS et modules JavaScript, servis tels quels (GitHub Pages). Les bibliothèques (SDK Anthropic et OpenAI, PeerJS, fflate, transformers.js, qrcode-generator) sont chargées depuis jsDelivr avec une version figée. Le `package.json` ne sert qu'au serveur de développement et aux tests.
 
 ```bash
-python3 -m http.server 8000
+npm install        # une fois : outils de test (Playwright)
+npm run serve      # http://localhost:8765 (PORT=… pour un autre port)
 ```
 
-Puis ouvrez http://localhost:8000 (les caméras exigent `localhost` ou `https`).
+Le serveur de développement désactive le cache : un rechargement prend toujours les derniers modules. Les caméras et le micro exigent `localhost` ou `https` ; ouverte en `file://`, la page ne peut pas charger ses modules.
 
-| Fichier | Rôle |
-|---|---|
-| `js/main.js` | Contrôleur de la page |
-| `js/media.js` | Caméras, clips, narration, captures d'écran |
-| `js/phonelink.js`, `js/phone.js`, `js/peer-protocol.js` | Liaison téléphone (WebRTC) |
-| `js/transcribe.js`, `js/whisper-worker.js` | Transcription (API ou locale) |
-| `js/agent.js` | Timeline vers prompt, appel de l'IA, brouillon JSON |
-| `js/export.js` | Assemblage, écriture dans le dossier, ZIP |
-| `js/profiles.js` | Profils de sortie par défaut |
-| `js/i18n.js` | Libellés FR / EN |
+### Architecture
+
+```
+js/
+  main.js      point d'entrée : branche les modules dans l'ordre, puis démarre
+  core/        briques sans dépendance : bus d'événements, DOM, i18n, icônes, réglages, stockage (IndexedDB)
+  session/     session courante et ses éléments (seule source de vérité), transcription des narrations
+  capture/     tuiles caméra et PTZ, micro, narration, écran, import de fichiers, état d'enregistrement
+  phone/       protocole WebRTC, liaison côté PC, télécommande, page téléphone
+  ai/          rédaction par l'IA, transcription (API ou Whisper local dans un worker)
+  output/      profils de sortie, export Markdown / ZIP, export pour un agent
+  ui/          barre d'outils et d'état, timeline, vue détaillée, barre flottante, dialogues
+```
+
+Les dépendances vont dans un seul sens : `core` ← `session` ← `capture` / `phone` ← `ui`. Les modules se préviennent par le bus (`core/bus.js`, liste des événements en tête du fichier) : une capture appelle `addEvent()`, qui annonce `event:added`, et la timeline, la barre d'état, la barre flottante et la télécommande du téléphone se mettent à jour d'elles-mêmes.
+
+Repères :
+
+- Ajouter une source de capture : appeler `addEvent(meta, {blob})` (`session/session.js`) ; rien d'autre à brancher.
+- Ajouter un réglage : valeur par défaut dans `core/settings.js`, champ `data-k="chemin.du.réglage"` dans le dialogue des réglages (`index.html`).
+- Libellés : le HTML est en français ; traductions et textes affichés par le code dans `core/i18n.js`.
+- Couleurs et composants : jetons repris de VibeCAD en tête de `css/app.css`.
+- `ai/whisper-worker.js` modifié : incrémenter `WORKER_VERSION` dans `ai/transcribe.js` (le navigateur garde les workers en cache).
+
+### Tests
+
+Parcours navigateur (Playwright, Chromium avec caméra et micro simulés) dans `tests/e2e/` :
+
+```bash
+npx playwright install chromium   # une fois
+npm test             # tout sauf les tests réseau
+npm run test:phone   # téléphone (serveur PeerJS en ligne) et vrai Whisper local (téléchargement du modèle)
+npm run test:all
+```
 
 Contributions bienvenues : nouveaux profils (Hugo, MkDocs, Docusaurus…), traductions, fournisseurs d'IA.
 

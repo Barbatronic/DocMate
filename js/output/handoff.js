@@ -1,22 +1,16 @@
 // Export « pour un agent » : un dossier de session autonome (consignes, timeline, médias) qu'un agent
 // de code (Claude Code, Codex CLI, Gemini CLI...) lit pour rédiger la doc directement dans le dépôt du site.
 // Utile pour rédiger avec son abonnement Claude ou ChatGPT plutôt qu'avec une clé API.
-import { buildTimeline, systemPrompt } from './agent.js';
-import { getBlob } from './store.js';
-import { extOf } from './media.js';
+import { buildTimeline, systemPrompt } from '../ai/agent.js';
+import { getBlob } from '../core/store.js';
+import { extOf } from '../capture/media.js';
 import { fill, slugify } from './profiles.js';
+import { fmtDate as stamp, docDate, sessionDuration, writeFiles, zipFiles } from './export.js';
 
-const FFLATE = 'https://cdn.jsdelivr.net/npm/fflate@0.8.3/+esm';
-
-const stamp = (ms) => {
-  const d = new Date(ms);
-  const p = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-};
 const clock = (ms) => new Date(ms).toTimeString().slice(0, 5).replace(':', '');
 
 function missionText(profile, session, events, transcribed) {
-  const vars = { project: slugify(session.project || '') || 'divers', date: stamp(session.started) };
+  const vars = { project: slugify(session.project || '') || 'divers', date: docDate(session, events) };
   const keep = (tpl) => fill(tpl, vars); // {slug}, {title}... restent à remplir par l'agent
   const hasAudio = events.some((e) => e.type === 'audio');
   return `# Mission
@@ -34,7 +28,7 @@ Tu es lancé dans le dépôt du site de l'auteur (dossier courant). Ce dossier d
 ${keep(profile.frontMatter).trim()}
 \`\`\`
 
-   \`{session}\` = durée de la session (${durationText(session, events)}). \`{state}\` et \`{next_step}\` : vides si la narration n'en parle pas.
+   \`{session}\` = durée de la session (${sessionDuration(session, events)}). \`{state}\` et \`{next_step}\` : vides si la narration n'en parle pas.
 5. Médias : copie uniquement ceux que tu utilises, depuis le dossier \`media/\` de la session vers \`${keep(profile.assetsDir)}\`, avec un nom court et parlant (kebab-case ASCII, extension d'origine).${profile.webMaxPx ? ` Si un outil est disponible (ImageMagick, Pillow...), réduis les photos JPEG à ${profile.webMaxPx} px de côté max ; sinon copie-les telles quelles.` : ''} Les fichiers « aperçu » servent à comprendre les vidéos : ne les publie pas, publie la vidéo d'origine.
    URL d'un média dans le Markdown : \`${keep(profile.assetsUrl)}/<nom-du-fichier>\`
    Gabarit image :
@@ -51,16 +45,12 @@ Ne fais ni commit ni push : l'auteur relit d'abord. Si \`.docmate/\` n'est pas d
 ${hasAudio && !transcribed ? '\n**Attention** : la narration n\'a pas été transcrite. Les fichiers audio sont dans `media/`. Si tu as un outil de transcription (ex. whisper), utilise-le ; sinon, rédige à partir des images et des notes, et signale-le.\n' : ''}`;
 }
 
-function durationText(session, events) {
-  const last = events.at(-1);
-  const m = Math.round(((session.ended || last?.tEnd || last?.t || session.started) - session.started) / 60000);
-  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ' ' + String(m % 60).padStart(2, '0') : ''}`;
-}
-
 // Retourne { folder, files: [{path, data}], prompt }.
 export async function buildHandoff(profile, session, events, onProgress) {
   // Dans le dépôt, sous .docmate/ : Jekyll (et la plupart des générateurs) ignorent les dossiers en point.
-  const name = `session-${stamp(session.started)}-${clock(session.started)}`;
+  // Nom du dossier : date et heure de l'export (une session peut être exportée plusieurs fois).
+  const now = Date.now();
+  const name = `session-${stamp(now)}-${clock(now)}`;
   const folder = `.docmate/${name}`;
   const parts = await buildTimeline(session, events, onProgress, { embed: false });
   const files = [];
@@ -70,7 +60,7 @@ export async function buildHandoff(profile, session, events, onProgress) {
     const { blobId, ev, role } = p.ref;
     const blob = blobId && (await getBlob(blobId));
     if (!blob) continue;
-    const name = role === 'original' ? `${ev.id}.${extOf(blob.type || ev.mime || '')}` : `${ev.id}-${role.replace(/\W+/g, '')}.jpg`;
+    const name = role === 'original' ? `${ev.id}.${extOf(blob.type || ev.mime || '')}` : `${ev.id}-${role.normalize('NFD').replace(/\W+/g, '')}.jpg`;
     files.push({ path: `${folder}/media/${name}`, data: blob });
     lines.push(role === 'original' ? `  fichier : media/${name}` : `  ${role} : media/${name}`);
   }
@@ -94,28 +84,6 @@ export async function buildHandoff(profile, session, events, onProgress) {
   return { folder, name, files, prompt };
 }
 
-export async function writeHandoffToDir(root, h) {
-  for (const f of h.files) {
-    const parts = f.path.split('/');
-    let dir = root;
-    for (const part of parts.slice(0, -1)) dir = await dir.getDirectoryHandle(part, { create: true });
-    const w = await (await dir.getFileHandle(parts.at(-1), { create: true })).createWritable();
-    await w.write(f.data);
-    await w.close();
-  }
-}
+export const writeHandoffToDir = (root, h) => writeFiles(root, h.files);
 
-export async function downloadHandoffZip(h) {
-  const { zipSync } = await import(FFLATE);
-  const entries = {};
-  for (const f of h.files) {
-    const data = typeof f.data === 'string' ? new TextEncoder().encode(f.data) : new Uint8Array(await f.data.arrayBuffer());
-    entries[f.path] = [data, { level: typeof f.data === 'string' ? 6 : 0 }];
-  }
-  const a = Object.assign(document.createElement('a'), {
-    href: URL.createObjectURL(new Blob([zipSync(entries)], { type: 'application/zip' })),
-    download: `docmate-${h.name}.zip`,
-  });
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-}
+export const downloadHandoffZip = (h) => zipFiles(h.files, `docmate-${h.name}.zip`);

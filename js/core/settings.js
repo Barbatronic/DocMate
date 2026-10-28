@@ -1,14 +1,15 @@
 // Réglages, stockés dans le localStorage du navigateur (clés API comprises : jamais envoyées ailleurs
 // qu'au fournisseur choisi).
-import { PRESETS } from './profiles.js';
+import { PRESETS } from '../output/profiles.js';
 
 const KEY = 'docmate.settings';
 
 const DEFAULTS = {
   lang: '',
+  theme: '', // '' (système) | light | dark
   agent: {
     provider: 'anthropic', // anthropic | openai | ollama
-    anthropicModel: 'claude-opus-5',
+    anthropicModel: 'claude-opus-5-5',
     anthropicEffort: 'high',
     anthropicKey: '',
     openaiModel: 'gpt-5',
@@ -21,6 +22,7 @@ const DEFAULTS = {
   },
   transcription: {
     provider: 'openai', // openai | local | none
+    auto: true, // transcrire chaque segment dès la fin de la narration
     openaiModel: 'whisper-1',
     openaiBaseUrl: '',
     openaiKey: '', // vide = clé OpenAI de l'agent
@@ -32,7 +34,8 @@ const DEFAULTS = {
     height: 1080,
     clipAudio: true,
     micId: '',
-    cameras: [], // deviceId des tuiles ouvertes
+    cameras: [], // caméras ouvertes : {id, label}
+    ptzPresets: {}, // deviceId -> 3 positions mémorisées {pan, tilt, zoom}
   },
   profiles: structuredClone(PRESETS),
   profileId: PRESETS[0].id,
@@ -48,12 +51,19 @@ function merge(base, over) {
   return out;
 }
 
+// Anciens modèles par défaut : remplacés par le défaut actuel (un choix explicite d'un autre modèle est gardé).
+// Déclaré avant `S = load()` : load() s'exécute à l'import du module.
+const OLD_DEFAULT_MODELS = ['claude-opus-5'];
+
 export let S = load();
 
 function load() {
   try {
-    return merge(structuredClone(DEFAULTS), JSON.parse(localStorage.getItem(KEY) || '{}'));
-  } catch {
+    const s = merge(structuredClone(DEFAULTS), JSON.parse(localStorage.getItem(KEY) || '{}'));
+    if (OLD_DEFAULT_MODELS.includes(s.agent.anthropicModel)) s.agent.anthropicModel = DEFAULTS.agent.anthropicModel;
+    return s;
+  } catch (e) {
+    console.error('Réglages illisibles, valeurs par défaut utilisées', e);
     return structuredClone(DEFAULTS);
   }
 }

@@ -3,83 +3,141 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#16181d">
+  <meta name="theme-color" content="#1f5fc0">
   <title>DocMate</title>
   <meta name="description" content="Assistant de documentation pour makers : webcams, photos, captures, narration, puis un agent IA rédige la doc en Markdown.">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="css/app.css">
+  <script>
+    // Thème choisi dans les réglages, appliqué avant l'affichage (pas de flash).
+    try { const th = JSON.parse(localStorage.getItem('docmate.settings') || '{}').theme; if (th) document.documentElement.dataset.theme = th; } catch {}
+  </script>
 </head>
 <body>
-  <header class="top">
-    <div class="brand"><img src="icon.svg" alt="" width="26" height="26"><strong>DocMate</strong></div>
+<div class="app">
+  <header class="app-header">
+    <div class="topbar" id="topbar">
+      <div class="brand">
+        <img class="brand-mark" src="icon.svg" alt="">
+        <div class="brand-text">
+          <strong>DocMate</strong>
+          <input id="session-title" class="session-title" autocomplete="off" spellcheck="false" data-i18n-title="session.rename" title="Nom de la session (cliquez pour le modifier)">
+        </div>
+      </div>
 
-    <div class="session-box">
-      <span id="session-name" class="session-name" data-i18n="session.none">Aucune session</span>
-      <span id="session-timer" class="timer">00:00:00</span>
-      <button id="btn-session" class="btn primary" data-i18n="session.start">Démarrer une session</button>
+      <div class="toolbar">
+        <div class="toolbar-group">
+          <div class="sector-tools">
+            <button id="btn-session" class="tool-btn" data-i18n-title="session.newTitle" title="Commencer une nouvelle session (la session actuelle reste enregistrée)"><i data-icon="new"></i><span data-i18n="session.new">Nouvelle</span></button>
+            <button id="btn-sessions" class="tool-btn" data-i18n-title="act.sessionsTitle" title="Sessions enregistrées"><i data-icon="sessions"></i><span data-i18n="act.sessions">Sessions</span></button>
+          </div>
+          <span class="sector-name" data-i18n="sector.session">Session</span>
+        </div>
+
+        <div class="toolbar-group">
+          <div class="sector-tools">
+            <button id="btn-narrate" class="tool-btn" title="N"><i data-icon="mic"></i><span class="level"><i></i></span><span data-i18n="act.narrate">Narration</span></button>
+            <button id="btn-photo" class="tool-btn" title="P"><i data-icon="photo"></i><span data-i18n="act.photo">Photo</span></button>
+            <button id="btn-clip" class="tool-btn" title="V"><i data-icon="clip"></i><span data-i18n="act.clip">Clip</span></button>
+            <button id="btn-marker" class="tool-btn" title="M"><i data-icon="marker"></i><span data-i18n="act.marker">Repère</span></button>
+            <button id="btn-screen" class="tool-btn" title="S"><i data-icon="screen"></i><span data-i18n="act.screen">Capture</span></button>
+          </div>
+          <span class="sector-name" data-i18n="sector.capture">Capture</span>
+        </div>
+
+        <div class="toolbar-group">
+          <div class="sector-tools">
+            <button id="btn-add-cam" class="tool-btn"><i data-icon="cam-add"></i><span data-i18n="act.camera">Caméra</span></button>
+            <button id="btn-phone" class="tool-btn"><i data-icon="phone"></i><span data-i18n="act.phone">Téléphone</span></button>
+            <button id="btn-pip" class="tool-btn" data-i18n-title="act.pipTitle" title="Barre flottante au-dessus des autres fenêtres"><i data-icon="pip"></i><span data-i18n="act.pip">Flottante</span></button>
+          </div>
+          <span class="sector-name" data-i18n="sector.sources">Sources</span>
+        </div>
+
+        <div class="toolbar-group">
+          <div class="sector-tools">
+            <button id="btn-generate" class="tool-btn primary"><i data-icon="sparkle"></i><span data-i18n="act.generate">Générer la doc</span></button>
+          </div>
+          <span class="sector-name" data-i18n="sector.doc">Documentation</span>
+        </div>
+
+        <div class="toolbar-group">
+          <div class="sector-tools">
+            <button id="btn-settings" class="tool-btn"><i data-icon="settings"></i><span data-i18n="act.settings">Réglages</span></button>
+          </div>
+          <span class="sector-name">&nbsp;</span>
+        </div>
+      </div>
     </div>
-
-    <nav class="actions">
-      <button id="btn-narrate" class="btn" title="N"><span class="level"><i></i></span><span data-i18n="act.narrate">Narration</span></button>
-      <button id="btn-photo" class="btn" title="P">📸 <span data-i18n="act.photo">Photo</span></button>
-      <button id="btn-clip" class="btn" title="V">⏺ <span data-i18n="act.clip">Clip</span></button>
-      <button id="btn-marker" class="btn" title="M">📍 <span data-i18n="act.marker">Repère</span></button>
-      <button id="btn-screen" class="btn" title="S">🖥 <span data-i18n="act.screen">Capture</span></button>
-      <button id="btn-phone" class="btn">📱 <span data-i18n="act.phone">Téléphone</span></button>
-      <button id="btn-pip" class="btn" data-i18n-title="act.pipTitle" title="Barre flottante">🪟</button>
-      <button id="btn-generate" class="btn accent">✨ <span data-i18n="act.generate">Générer la doc</span></button>
-      <button id="btn-sessions" class="btn ghost" data-i18n-title="act.sessions" title="Sessions">🗂</button>
-      <button id="btn-settings" class="btn ghost" data-i18n-title="act.settings" title="Réglages">⚙</button>
-    </nav>
   </header>
 
-  <div id="banner" class="banner" hidden></div>
-
-  <main class="layout">
-    <section class="cams-wrap">
+  <main class="main" id="main">
+    <section class="viewport-area">
+      <div id="banner" class="banner" hidden></div>
       <div id="cams" class="cams"></div>
+      <section id="detail" class="detail" hidden></section>
       <div class="cams-empty" id="cams-empty">
+        <i data-icon="cam-add" class="big"></i>
         <p data-i18n="cams.empty">Aucune caméra ouverte.</p>
-      </div>
-      <div class="cams-tools">
-        <button id="btn-add-cam" class="btn">＋ <span data-i18n="cams.add">Ajouter une caméra</span></button>
-        <span class="hint" data-i18n="cams.hint">Raccourcis (page active) : P photo · V clip · M repère · N narration · S capture</span>
+        <div class="row">
+          <button id="btn-add-cam-2" class="btn primary"><i data-icon="cam-add"></i><span data-i18n="cams.add">Ajouter une caméra</span></button>
+          <button id="btn-phone-2" class="btn"><i data-icon="phone"></i><span data-i18n="cams.phone">Connecter le téléphone</span></button>
+        </div>
+        <p class="hint" data-i18n="cams.hint">Raccourcis (page active) : P photo · V clip · M repère · N narration · S capture</p>
       </div>
     </section>
 
-    <aside class="timeline-wrap">
-      <div class="tl-head">
-        <h2 data-i18n="tl.title">Timeline</h2>
+    <aside class="panel left-panel" id="tl-panel">
+      <div class="panel-header">
+        <i data-icon="sessions"></i><span data-i18n="tl.title">Timeline</span>
+        <span class="spacer"></span>
         <span id="tl-count" class="pill">0</span>
       </div>
       <ol id="timeline" class="timeline"></ol>
-      <form id="note-form" class="note-form">
-        <input id="note-input" type="text" data-i18n-ph="tl.notePh" placeholder="Note écrite (Entrée)…" autocomplete="off">
-      </form>
-      <p class="hint drop-hint" data-i18n="tl.drop">Glissez des photos, vidéos ou captures n'importe où dans la page pour les ajouter.</p>
+      <div class="panel-actions">
+        <form id="note-form" class="note-form">
+          <input id="note-input" type="text" data-i18n-ph="tl.notePh" placeholder="Note écrite (Entrée)…" autocomplete="off">
+          <button class="icon-btn" data-i18n-title="tl.addNote" title="Ajouter la note"><i data-icon="send"></i></button>
+        </form>
+        <p class="hint drop-hint" data-i18n="tl.drop">Glissez des photos, vidéos ou captures n'importe où dans la page pour les ajouter.</p>
+      </div>
     </aside>
+    <button id="btn-tl-toggle" class="panel-handle" data-i18n-title="tl.toggle" title="Replier ou ouvrir la timeline"><i data-icon="chevron-left"></i></button>
   </main>
 
-  <div id="drop-overlay" class="drop-overlay" hidden><span data-i18n="tl.dropNow">Déposer pour ajouter à la session</span></div>
+  <footer class="statusbar">
+    <span class="item"><span id="st-dot" class="dot ok"></span><span id="st-session" data-i18n="st.ready">Prêt</span></span>
+    <span class="item" data-i18n-title="st.work" title="Temps de travail de la session (les pauses de plus de 30 min ne comptent pas)"><span id="session-timer" class="timer">00:00:00</span></span>
+    <span class="item" id="st-mic-item"><i data-icon="mic"></i><span id="st-mic" data-i18n="st.micPc">Micro du PC</span></span>
+    <span class="item"><i data-icon="phone"></i><span id="st-phone" data-i18n="st.phoneNone">Aucun téléphone</span></span>
+    <span class="help-text" data-i18n="cams.hint">Raccourcis (page active) : P photo · V clip · M repère · N narration · S capture</span>
+  </footer>
+</div>
 
-  <!-- Téléphone -->
-  <dialog id="dlg-phone" class="dlg">
-    <form method="dialog" class="dlg-head"><h2 data-i18n="phone.title">Connecter un téléphone</h2><button class="btn ghost">✕</button></form>
+<div id="drop-overlay" class="drop-overlay" hidden><span data-i18n="tl.dropNow">Déposer pour ajouter à la session</span></div>
+
+<!-- Téléphone -->
+<dialog id="dlg-phone" class="dlg">
+  <form method="dialog" class="dlg-head"><i data-icon="phone" class="title-icon"></i><h2 data-i18n="phone.title">Connecter un téléphone</h2><button class="icon-btn" title="Fermer"><i data-icon="close"></i></button></form>
+  <div class="dlg-body">
     <div class="phone-pair">
       <div id="qr" class="qr"></div>
       <div>
         <p data-i18n="phone.how">Scannez ce QR code avec l'appareil photo du téléphone. La page DocMate s'ouvre et se connecte directement à ce PC.</p>
+        <p data-i18n="phone.can">Depuis le téléphone : télécommande (narration, photo, clip, repère), micro sans fil, caméra en direct, envoi de photos et vidéos.</p>
         <p><a id="phone-url" target="_blank" rel="noopener"></a></p>
-        <p id="phone-status" class="pill"></p>
-        <p class="hint" data-i18n="phone.privacy">Les photos passent directement du téléphone au PC (WebRTC). Le serveur PeerJS ne sert qu'à la mise en relation.</p>
+        <p><span id="phone-status" class="pill"></span></p>
+        <p class="hint" data-i18n="phone.privacy">Les photos et le son passent directement du téléphone au PC (WebRTC). Le serveur PeerJS ne sert qu'à la mise en relation.</p>
       </div>
     </div>
-  </dialog>
+  </div>
+</dialog>
 
-  <!-- Génération -->
-  <dialog id="dlg-gen" class="dlg wide">
-    <form method="dialog" class="dlg-head"><h2 data-i18n="gen.title">Générer la documentation</h2><button class="btn ghost">✕</button></form>
+<!-- Génération -->
+<dialog id="dlg-gen" class="dlg wide">
+  <form method="dialog" class="dlg-head"><i data-icon="sparkle" class="title-icon"></i><h2 data-i18n="gen.title">Générer la documentation</h2><button class="icon-btn" title="Fermer"><i data-icon="close"></i></button></form>
+  <div class="dlg-body">
     <div id="gen-setup" class="grid2">
       <label><span data-i18n="gen.profile">Profil de sortie</span><select id="gen-profile"></select></label>
       <label><span data-i18n="gen.project">Projet</span><input id="gen-project" list="gen-projects" autocomplete="off"><datalist id="gen-projects"></datalist></label>
@@ -87,24 +145,24 @@
       <label class="span2"><span data-i18n="gen.instructions">Consignes pour l'IA (facultatif)</span><textarea id="gen-instructions" rows="2" data-i18n-ph="gen.instructionsPh" placeholder="ex. Mets l'accent sur le câblage, ajoute une liste de matériel."></textarea></label>
       <div class="span2 site-row">
         <span id="site-label" class="hint"></span>
-        <button id="btn-site" type="button" class="btn" data-i18n="gen.pickSite">Choisir le dossier du site…</button>
+        <button id="btn-site" type="button" class="btn"><i data-icon="open"></i><span data-i18n="gen.pickSite">Choisir le dossier du site…</span></button>
       </div>
       <div class="span2 row-end">
         <span id="gen-summary" class="hint"></span>
-        <button id="btn-handoff" type="button" class="btn" data-i18n-title="gen.handoffTitle" title="Pour rédiger avec Claude Code, Codex CLI ou un autre agent (abonnement Claude ou ChatGPT, sans clé API)">📦 <span data-i18n="gen.handoff">Exporter pour un agent</span></button>
-        <button id="btn-run" type="button" class="btn accent">✨ <span data-i18n="gen.run">Générer</span></button>
+        <button id="btn-handoff" type="button" class="btn" data-i18n-title="gen.handoffTitle" title="Pour rédiger avec Claude Code, Codex CLI ou un autre agent (abonnement Claude ou ChatGPT, sans clé API)"><i data-icon="package"></i><span data-i18n="gen.handoff">Exporter pour un agent</span></button>
+        <button id="btn-run" type="button" class="btn primary"><i data-icon="sparkle"></i><span data-i18n="gen.run">Générer</span></button>
       </div>
     </div>
     <pre id="gen-log" class="log" hidden></pre>
     <div id="handoff-result" class="handoff" hidden>
       <p data-i18n="gen.handoffHow">Ouvrez un terminal dans le dossier du site, lancez votre agent (claude, codex…) et collez :</p>
-      <div class="row"><code id="handoff-prompt" class="mono"></code><button id="btn-copy-prompt" type="button" class="btn small" data-i18n="gen.copy">Copier</button></div>
+      <div class="row"><code id="handoff-prompt" class="mono"></code><button id="btn-copy-prompt" type="button" class="btn small"><i data-icon="copy"></i><span data-i18n="gen.copy">Copier</span></button></div>
       <p id="handoff-where" class="hint"></p>
     </div>
     <div id="gen-result" hidden>
-      <div class="grid2">
+      <div class="grid2" style="margin-top:12px">
         <label class="span2"><span data-i18n="gen.docTitle">Titre</span><input id="d-title"></label>
-        <label><span>Slug</span><input id="d-slug"></label>
+        <label><span>Slug</span><input id="d-slug" class="mono"></label>
         <label><span data-i18n="gen.state">État</span><input id="d-state"></label>
         <label class="span2"><span>Description</span><input id="d-description"></label>
         <label class="span2"><span data-i18n="gen.next">Prochaine étape</span><input id="d-next"></label>
@@ -112,30 +170,37 @@
       </div>
       <div id="d-media" class="media-strip"></div>
       <div class="row-end">
-        <button id="btn-regen" type="button" class="btn ghost" data-i18n="gen.regen">Régénérer</button>
-        <button id="btn-zip" type="button" class="btn">⬇ <span data-i18n="gen.zip">Télécharger le ZIP</span></button>
-        <button id="btn-write" type="button" class="btn primary">💾 <span data-i18n="gen.write">Écrire dans le dossier du site</span></button>
+        <button id="btn-regen" type="button" class="btn ghost"><i data-icon="refresh"></i><span data-i18n="gen.regen">Régénérer</span></button>
+        <button id="btn-zip" type="button" class="btn"><i data-icon="import"></i><span data-i18n="gen.zip">Télécharger le ZIP</span></button>
+        <button id="btn-write" type="button" class="btn primary"><i data-icon="save"></i><span data-i18n="gen.write">Écrire dans le dossier du site</span></button>
       </div>
       <pre id="gen-done" class="log ok" hidden></pre>
     </div>
-  </dialog>
+  </div>
+</dialog>
 
-  <!-- Sessions -->
-  <dialog id="dlg-sessions" class="dlg">
-    <form method="dialog" class="dlg-head"><h2 data-i18n="sess.title">Sessions</h2><button class="btn ghost">✕</button></form>
+<!-- Sessions -->
+<dialog id="dlg-sessions" class="dlg">
+  <form method="dialog" class="dlg-head"><i data-icon="sessions" class="title-icon"></i><h2 data-i18n="sess.title">Sessions</h2><button class="icon-btn" title="Fermer"><i data-icon="close"></i></button></form>
+  <div class="dlg-body">
+    <p class="hint" data-i18n="session.help">Tout ce que vous capturez va dans la session en cours, d'une ouverture de DocMate à l'autre. Ouvrez une autre session pour la reprendre, ou commencez-en une nouvelle.</p>
     <ul id="sessions-list" class="sessions-list"></ul>
-  </dialog>
+  </div>
+  <div class="dlg-foot">
+    <button id="btn-new-2" class="btn primary"><i data-icon="new"></i><span data-i18n="session.newTitle">Commencer une nouvelle session</span></button>
+  </div>
+</dialog>
 
-  <!-- Réglages -->
-  <dialog id="dlg-settings" class="dlg wide">
-    <form method="dialog" class="dlg-head"><h2 data-i18n="set.title">Réglages</h2><button class="btn ghost">✕</button></form>
-    <div class="tabs" role="tablist">
-      <button class="tab active" data-tab="ai" data-i18n="set.ai">IA</button>
-      <button class="tab" data-tab="stt" data-i18n="set.stt">Transcription</button>
-      <button class="tab" data-tab="out" data-i18n="set.out">Profil de sortie</button>
-      <button class="tab" data-tab="cap" data-i18n="set.cap">Capture</button>
-    </div>
-
+<!-- Réglages -->
+<dialog id="dlg-settings" class="dlg wide">
+  <form method="dialog" class="dlg-head"><i data-icon="settings" class="title-icon"></i><h2 data-i18n="set.title">Réglages</h2><button class="icon-btn" title="Fermer"><i data-icon="close"></i></button></form>
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-tab="ai" data-i18n="set.ai">IA</button>
+    <button class="tab" data-tab="stt" data-i18n="set.stt">Transcription</button>
+    <button class="tab" data-tab="out" data-i18n="set.out">Profil de sortie</button>
+    <button class="tab" data-tab="cap" data-i18n="set.cap">Capture</button>
+  </div>
+  <div class="dlg-body">
     <section class="tab-pane grid2" data-pane="ai">
       <label class="span2"><span data-i18n="set.provider">Fournisseur</span>
         <select data-k="agent.provider">
@@ -175,14 +240,15 @@
           <option value="onnx-community/whisper-small">whisper-small (~250 Mo, meilleur)</option>
         </select></label>
       <label><span data-i18n="set.language">Langue de la narration</span><input data-k="transcription.language" placeholder="fr"></label>
+      <label class="check span2"><input type="checkbox" data-k="transcription.auto"><span data-i18n="set.sttAuto">Transcrire chaque segment dès la fin de la narration (corrigeable ensuite dans la timeline)</span></label>
     </section>
 
     <section class="tab-pane" data-pane="out" hidden>
       <div class="row">
         <select id="prof-select"></select>
         <button id="prof-dup" class="btn" type="button" data-i18n="set.dup">Dupliquer</button>
-        <button id="prof-export" class="btn" type="button" data-i18n="set.export">Exporter</button>
-        <label class="btn"><input id="prof-import" type="file" accept=".json" hidden><span data-i18n="set.import">Importer</span></label>
+        <button id="prof-export" class="btn" type="button"><i data-icon="export"></i><span data-i18n="set.export">Exporter</span></button>
+        <label class="btn"><input id="prof-import" type="file" accept=".json" hidden><i data-icon="import"></i><span data-i18n="set.import">Importer</span></label>
         <button id="prof-reset" class="btn ghost" type="button" data-i18n="set.reset">Réinitialiser</button>
       </div>
       <div class="grid2" id="prof-form">
@@ -200,7 +266,7 @@
         <div class="span2">
           <span class="lbl" data-i18n="set.pExamples">Exemples de docs déjà écrites (l'IA imite leur style)</span>
           <ul id="prof-examples" class="chips"></ul>
-          <label class="btn"><input id="prof-ex-add" type="file" accept=".md,.markdown,.txt" multiple hidden><span data-i18n="set.addExamples">Ajouter des fichiers .md</span></label>
+          <label class="btn"><input id="prof-ex-add" type="file" accept=".md,.markdown,.txt" multiple hidden><i data-icon="import"></i><span data-i18n="set.addExamples">Ajouter des fichiers .md</span></label>
           <span class="hint" data-i18n="set.autoExamples">Avec un dossier de site choisi, les docs récentes du même projet sont ajoutées automatiquement.</span>
         </div>
         <p class="hint span2" data-i18n="set.vars">Variables : {project} {date} {slug} {title} {description} {state} {next_step} {session} · gabarits média : {url} {alt} {caption} {mime}</p>
@@ -214,13 +280,26 @@
       <label><span data-i18n="set.camH">Hauteur caméra souhaitée</span><input type="number" data-k="capture.height"></label>
       <div class="span2 site-row">
         <span id="shots-label" class="hint"></span>
-        <button id="btn-shots" type="button" class="btn" data-i18n="set.pickShots">Surveiller un dossier de captures…</button>
+        <button id="btn-shots" type="button" class="btn"><i data-icon="open"></i><span data-i18n="set.pickShots">Surveiller un dossier de captures…</span></button>
       </div>
       <p class="hint span2" data-i18n="set.shotsHint">Pendant une session, chaque nouvelle capture d'écran enregistrée dans ce dossier (raccourcis de votre système : Impr. écran, etc.) est ajoutée à la timeline. Chrome, Edge, Opera uniquement.</p>
+      <label><span data-i18n="set.theme">Thème</span><select data-k="theme"><option value="" data-i18n="set.themeAuto">Automatique (système)</option><option value="light" data-i18n="set.themeLight">Clair</option><option value="dark" data-i18n="set.themeDark">Sombre</option></select></label>
       <label><span>Langue / Language</span><select data-k="lang"><option value="">Auto</option><option value="fr">Français</option><option value="en">English</option></select></label>
     </section>
-  </dialog>
+  </div>
+</dialog>
 
-  <script type="module" src="js/main.js"></script>
+<script>
+  // Ouverte comme fichier (file://), la page ne peut pas charger ses modules : on explique quoi faire.
+  if (location.protocol === 'file:') {
+    const b = document.getElementById('banner');
+    b.hidden = false;
+    b.className = 'banner warn';
+    b.innerHTML = navigator.language.startsWith('fr')
+      ? "<span><b>DocMate ne fonctionne pas ouvert comme un fichier (file://)</b> : le navigateur bloque ses scripts. Ouvrez la version en ligne, ou lancez un serveur local dans le dossier : <code>python3 -m http.server 8765</code> puis <a href='http://localhost:8765/'>http://localhost:8765/</a>.</span>"
+      : "<span><b>DocMate does not work opened as a file (file://)</b>: the browser blocks its scripts. Open the online version, or start a local server in the folder: <code>python3 -m http.server 8765</code> then <a href='http://localhost:8765/'>http://localhost:8765/</a>.</span>";
+  }
+</script>
+<script type="module" src="js/main.js"></script>
 </body>
 </html>
