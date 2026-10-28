@@ -22,7 +22,7 @@
 | Téléphone | Scannez le QR code : photos, vidéos, repères et notes partent directement au PC (WebRTC). Ou diffusez la caméra du téléphone en direct comme une webcam de plus |
 | Captures d'écran | Dossier surveillé (vos raccourcis habituels, ex. Impr. écran), bouton Capture (partage d'écran), coller (Ctrl+V), glisser-déposer |
 | Transcription | API Whisper (OpenAI, Groq ou compatible) ou **Whisper dans le navigateur** (gratuit, hors ligne) |
-| IA de rédaction | **Claude** (Anthropic), **OpenAI** ou API compatible, **Ollama** (local, gratuit) |
+| IA de rédaction | **Claude** (Anthropic), **OpenAI** ou API compatible, **Ollama** (local, gratuit), ou **export pour un agent** (Claude Code, Codex CLI…) pour utiliser un abonnement sans clé API |
 | Sortie | Profils configurables : Jekyll `_posts`, Jekyll collection de logs par projet, Markdown simple. Importables / exportables en JSON |
 | Style | Donnez 2 ou 3 de vos docs : l'IA imite votre ton. Avec un dossier de site, les docs récentes du projet sont prises automatiquement |
 | Barre flottante | Mini-barre Photo / Clip / Repère / Narration toujours au-dessus de la CAO |
@@ -46,6 +46,24 @@ Ouvrez **⚙ Réglages** :
 - **Transcription** : API Whisper (réutilise la clé OpenAI par défaut) ou Whisper local (le modèle se télécharge au premier usage).
 - **Profil de sortie** : où ranger le document et les médias, front matter, gabarits d'image et de vidéo.
 - **Capture** : micro, son des clips, dossier de captures d'écran à surveiller.
+
+### Sans clé API : export pour un agent
+
+Les abonnements Claude (Pro, Max) et ChatGPT (Plus, Pro) ne donnent pas de clé API. Mais ils fonctionnent avec les agents en ligne de commande, comme [Claude Code](https://claude.com/claude-code) ou [Codex CLI](https://github.com/openai/codex).
+
+Dans **Générer la doc**, le bouton **📦 Exporter pour un agent** produit un dossier de session `.docmate/session-<date>-<heure>/` à la racine du site :
+
+- `CONSIGNES.md` : la mission (où écrire le document, où copier les médias, front matter, gabarits) et les règles de style ;
+- `timeline.md` : la timeline horodatée (paroles, repères, notes) avec le chemin de chaque média ;
+- `media/` : photos, captures, vidéos et leurs aperçus.
+
+Sous Chrome, Edge ou Opera, le dossier est écrit directement dans le site. Ailleurs, on obtient un ZIP à décompresser à la racine. Ensuite, dans un terminal ouvert dans le dossier du site :
+
+```bash
+claude "Lis le fichier .docmate/session-…/CONSIGNES.md et suis ses instructions"
+```
+
+La transcription reste faite par DocMate. Choisissez **Whisper dans le navigateur** pour n'avoir aucune clé à fournir. Ajoutez `.docmate/` au `.gitignore` du site.
 
 ### Ollama (100 % local)
 

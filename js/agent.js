@@ -45,7 +45,7 @@ const KIND = {
   clip: 'CLIP VIDÉO', phone_video: 'VIDÉO (téléphone)',
 };
 
-function systemPrompt(p) {
+export function systemPrompt(p, { handoff = false } = {}) {
   const examples = (p.examples || [])
     .filter((e) => e.text?.trim())
     .map((e, i) => `<exemple numero="${i + 1}" fichier="${e.name}">\n${e.text.slice(0, 20000)}\n</exemple>`)
@@ -59,10 +59,10 @@ Ta tâche : rédiger le document en Markdown, à la première personne, comme si
 Règles :
 - N'invente rien. Ce qui n'est ni dit ni visible n'est pas écrit. Une information manquante mais nécessaire se signale entre crochets : [À PRÉCISER : ...].
 - Reformule l'oral en écrit propre : enlève les hésitations, répétitions et digressions, garde les chiffres, références, valeurs et explications techniques.
-- Insère un média en écrivant le marqueur [[media:ID]] seul sur sa ligne, à l'endroit où il illustre le texte. N'utilise que les ID fournis. Écarte les médias flous, en double ou sans intérêt (ne les mets pas dans le corps).
-- Pour chaque média utilisé, donne dans "media" : un nom de fichier court et parlant (kebab-case, ASCII, sans extension), un texte alternatif qui décrit l'image, une légende courte.
+${handoff
+  ? "- Insère chaque média à l'endroit où il illustre le texte, avec les gabarits de la mission. Écarte les médias flous, en double ou sans intérêt.\n- Pour chaque média publié : un nom de fichier court et parlant, un texte alternatif qui décrit l'image, une légende courte."
+  : "- Insère un média en écrivant le marqueur [[media:ID]] seul sur sa ligne, à l'endroit où il illustre le texte. N'utilise que les ID fournis. Écarte les médias flous, en double ou sans intérêt (ne les mets pas dans le corps).\n- Pour chaque média utilisé, donne dans \"media\" : un nom de fichier court et parlant (kebab-case, ASCII, sans extension), un texte alternatif qui décrit l'image, une légende courte.\n- Pas de front matter dans \"body\" : il est généré à partir des autres champs."}
 - Un REPÈRE indique un moment que l'auteur juge important. Une NOTE ÉCRITE est une information fiable de l'auteur.
-- Pas de front matter dans "body" : il est généré à partir des autres champs.
 - La langue du document est celle de la narration, sauf consigne contraire.
 
 Style à respecter :
@@ -70,8 +70,10 @@ ${p.styleGuide || '(aucune consigne)'}
 ${examples ? `\nVoici des documents déjà écrits par l'auteur. Imite leur ton, leur structure et leur niveau de détail (pas leur contenu) :\n\n${examples}` : ''}`;
 }
 
-// Construit la timeline : liste de parties {text} ou {image:{b64, mime}}.
-export async function buildTimeline(session, events, onProgress) {
+// Construit la timeline : liste de parties {text}, puis
+//  - embed=true  : {image:{b64, mime}} (images réduites, budget d'images appliqué) pour un appel API ;
+//  - embed=false : {ref:{blobId, ev, role}} (tous les médias) pour l'export vers un agent.
+export async function buildTimeline(session, events, onProgress, { embed = true } = {}) {
   const p = S.agent;
   const parts = [];
   const items = [];
@@ -86,10 +88,10 @@ export async function buildTimeline(session, events, onProgress) {
 
   // Budget d'images : photos et captures d'abord, puis images clés des clips.
   const visual = events.filter((e) => KIND[e.type]);
-  let perClip = 3;
+  let perClip = embed ? 3 : 6;
   const count = () => visual.reduce((n, e) => n + (e.type === 'clip' ? Math.min(perClip, e.keyframes?.length || 0) : 1), 0);
-  while (count() > p.maxImages && perClip > 1) perClip--;
-  let keepEvery = Math.max(1, Math.ceil(count() / p.maxImages));
+  if (embed) while (count() > p.maxImages && perClip > 1) perClip--;
+  const keepEvery = embed ? Math.max(1, Math.ceil(count() / p.maxImages)) : 1;
 
   const date = new Date(session.started);
   parts.push({
@@ -121,6 +123,11 @@ export async function buildTimeline(session, events, onProgress) {
     const ids = ev.type === 'clip' || ev.type === 'phone_video'
       ? (ev.keyframes?.length ? ev.keyframes.slice(0, perClip) : ev.thumbId ? [ev.thumbId] : [])
       : [ev.blobId];
+    if (!embed) {
+      parts.push({ ref: { blobId: ev.blobId, ev, role: 'original' } });
+      if (ids[0] !== ev.blobId) ids.forEach((bid, k) => parts.push({ ref: { blobId: bid, ev, role: `aperçu ${k + 1}` } }));
+      continue;
+    }
     if (ev.type === 'clip' && ids.length) parts.push({ text: `(images extraites du clip ${ev.id})` });
     for (const bid of ids) {
       if (i++ % keepEvery) continue;

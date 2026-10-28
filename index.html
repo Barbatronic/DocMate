@@ -91,10 +91,16 @@
       </div>
       <div class="span2 row-end">
         <span id="gen-summary" class="hint"></span>
+        <button id="btn-handoff" type="button" class="btn" data-i18n-title="gen.handoffTitle" title="Pour rédiger avec Claude Code, Codex CLI ou un autre agent (abonnement Claude ou ChatGPT, sans clé API)">📦 <span data-i18n="gen.handoff">Exporter pour un agent</span></button>
         <button id="btn-run" type="button" class="btn accent">✨ <span data-i18n="gen.run">Générer</span></button>
       </div>
     </div>
     <pre id="gen-log" class="log" hidden></pre>
+    <div id="handoff-result" class="handoff" hidden>
+      <p data-i18n="gen.handoffHow">Ouvrez un terminal dans le dossier du site, lancez votre agent (claude, codex…) et collez :</p>
+      <div class="row"><code id="handoff-prompt" class="mono"></code><button id="btn-copy-prompt" type="button" class="btn small" data-i18n="gen.copy">Copier</button></div>
+      <p id="handoff-where" class="hint"></p>
+    </div>
     <div id="gen-result" hidden>
       <div class="grid2">
         <label class="span2"><span data-i18n="gen.docTitle">Titre</span><input id="d-title"></label>

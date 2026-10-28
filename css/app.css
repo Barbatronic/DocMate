@@ -158,6 +158,9 @@ label.check span { margin: 0; color: var(--text); font-size: 1em; }
 .tab-pane .row select { width: auto; flex: 1; }
 .log { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: .6rem .8rem; font-family: var(--mono); font-size: .8em; max-height: 220px; overflow: auto; white-space: pre-wrap; }
 .log.ok { border-color: var(--ok); }
+.handoff { margin-top: .75rem; padding: .75rem; border: 1px solid var(--ok); border-radius: 8px; }
+.handoff p { margin: 0 0 .5rem; }
+.handoff code { flex: 1; background: var(--bg); padding: .5rem; border-radius: 6px; user-select: all; word-break: break-word; }
 .media-strip { display: flex; gap: .5rem; overflow-x: auto; padding: .75rem 0; }
 .media-strip figure { margin: 0; flex: 0 0 150px; font-size: .75em; color: var(--muted); }
 .media-strip img { width: 150px; height: 100px; object-fit: cover; border-radius: 6px; background: var(--panel-2); }

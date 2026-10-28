@@ -9,6 +9,7 @@ import { transcribe } from './transcribe.js';
 import { draft } from './agent.js';
 import { assemble, writeToDir, downloadZip, ensurePermission, listProjects, recentDocs } from './export.js';
 import { fill, slugify, exportProfile, importProfile } from './profiles.js';
+import { buildHandoff, writeHandoffToDir, downloadHandoffZip } from './handoff.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -479,25 +480,47 @@ function log(msg) {
   el.scrollTop = el.scrollHeight;
 }
 
-async function runGeneration() {
-  if (!events.length) return toast(t('gen.empty'));
+async function saveGenFields() {
   session.project = slugify($('#gen-project').value) === 'doc' ? '' : $('#gen-project').value.trim();
   session.title = $('#gen-title').value.trim();
   session.instructions = $('#gen-instructions').value.trim();
   await db.putSession(session);
   $('#gen-log').textContent = '';
   $('#gen-result').hidden = true;
-  $('#btn-run').disabled = true;
+  $('#handoff-result').hidden = true;
+}
+
+// Transcrit les segments de narration qui ne l'ont pas encore été (le résultat est gardé).
+async function transcribeAll() {
+  const audio = events.filter((e) => e.type === 'audio');
+  for (const [i, ev] of audio.entries()) {
+    if (ev.transcript) continue;
+    log(t('gen.transcribing', { i: i + 1, n: audio.length }));
+    let last = '';
+    ev.transcript = await transcribe(await db.getBlob(ev.blobId), (p) => { if (p !== last) { last = p; log('  ' + p); } });
+    await db.putEvent(ev);
+  }
+}
+
+async function busy(fn) {
+  $('#btn-run').disabled = $('#btn-handoff').disabled = true;
   try {
-    // 1. Transcription des segments pas encore transcrits.
-    const audio = events.filter((e) => e.type === 'audio');
-    for (const [i, ev] of audio.entries()) {
-      if (ev.transcript) continue;
-      log(t('gen.transcribing', { i: i + 1, n: audio.length }));
-      let last = '';
-      ev.transcript = await transcribe(await db.getBlob(ev.blobId), (p) => { if (p !== last) { last = p; log('  ' + p); } });
-      await db.putEvent(ev);
-    }
+    await fn();
+  } catch (e) {
+    log('✗ ' + (e.message || e));
+    console.error(e);
+  } finally {
+    $('#btn-run').disabled = $('#btn-handoff').disabled = false;
+    renderTimeline();
+  }
+}
+
+async function runGeneration() {
+  if (!events.length) return toast(t('gen.empty'));
+  await saveGenFields();
+  await busy(async () => {
+    // 1. Transcription.
+    await transcribeAll();
     // 2. Exemples de style : docs récentes du même projet dans le site.
     let extra = [];
     if (siteHandle && (await siteReadable())) {
@@ -516,13 +539,29 @@ async function runGeneration() {
     lastDraft = { ...d, sessionId: session.id };
     showDraft(lastDraft);
     log(t('gen.done'));
-  } catch (e) {
-    log('✗ ' + (e.message || e));
-    console.error(e);
-  } finally {
-    $('#btn-run').disabled = false;
-    renderTimeline();
-  }
+  });
+}
+
+// Export pour un agent de code (Claude Code, Codex CLI...) : rédaction avec un abonnement, sans clé API.
+async function runHandoff() {
+  if (!events.length) return toast(t('gen.empty'));
+  await saveGenFields();
+  await busy(async () => {
+    if (S.transcription.provider !== 'none') {
+      try { await transcribeAll(); } catch (e) { log('⚠ ' + (e.message || e) + ' · ' + t('gen.handoffNoStt')); }
+    }
+    const h = await buildHandoff(profile(), session, events, (p) => log(p));
+    if (F.dirWrite && siteHandle && (await ensurePermission(siteHandle))) {
+      await writeHandoffToDir(siteHandle, h);
+      $('#handoff-where').textContent = t('gen.handoffWritten', { path: `${siteHandle.name}/${h.folder}/` });
+    } else {
+      await downloadHandoffZip(h);
+      $('#handoff-where').textContent = t('gen.handoffZip', { path: h.folder });
+    }
+    $('#handoff-prompt').textContent = h.prompt;
+    $('#handoff-result').hidden = false;
+    log(t('gen.handoffDone', { n: h.files.length }));
+  });
 }
 
 function showDraft(d) {
@@ -565,6 +604,11 @@ function done(title, paths) {
 }
 
 $('#btn-run').onclick = runGeneration;
+$('#btn-handoff').onclick = runHandoff;
+$('#btn-copy-prompt').onclick = async () => {
+  await navigator.clipboard.writeText($('#handoff-prompt').textContent);
+  toast('📋 ' + t('gen.copied'));
+};
 $('#btn-regen').onclick = runGeneration;
 
 $('#btn-write').onclick = async () => {
