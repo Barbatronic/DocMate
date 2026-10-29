@@ -41,17 +41,17 @@ ${profile.videoTemplate}
 \`\`\`
    (\`{url}\` = URL du média, \`{alt}\` = description de l'image, \`{caption}\` = légende courte, \`{mime}\` = type, ex. video/mp4.)
 ${profile.projectFile ? `6. Si \`${keep(profile.projectFile)}\` existe et contient un champ \`updated:\`, mets-le à \`${vars.date}\`.\n` : ''}
-Ne fais ni commit ni push : l'auteur relit d'abord. Si \`.docmate/\` n'est pas dans le \`.gitignore\` du dépôt, propose de l'y ajouter (ce dossier de session ne doit pas être publié). À la fin, donne le chemin du document et la liste des médias copiés.
+Ne fais ni commit ni push : l'auteur relit d'abord. Si \`_docmate/\` n'est pas dans le \`.gitignore\` du dépôt, propose de l'y ajouter (ce dossier de session ne doit pas être publié). À la fin, donne le chemin du document et la liste des médias copiés.
 ${hasAudio && !transcribed ? '\n**Attention** : la narration n\'a pas été transcrite. Les fichiers audio sont dans `media/`. Si tu as un outil de transcription (ex. whisper), utilise-le ; sinon, rédige à partir des images et des notes, et signale-le.\n' : ''}`;
 }
 
 // Retourne { folder, files: [{path, data}], prompt }.
 export async function buildHandoff(profile, session, events, onProgress) {
-  // Dans le dépôt, sous .docmate/ : Jekyll (et la plupart des générateurs) ignorent les dossiers en point.
+  // Dans le dépôt, sous _docmate/ : visible, et Jekyll ignore les dossiers qui commencent par « _ ».
   // Nom du dossier : date et heure de l'export (une session peut être exportée plusieurs fois).
   const now = Date.now();
   const name = `session-${stamp(now)}-${clock(now)}`;
-  const folder = `.docmate/${name}`;
+  const folder = `_docmate/${name}`;
   const parts = await buildTimeline(session, events, onProgress, { embed: false });
   const files = [];
   const lines = [];

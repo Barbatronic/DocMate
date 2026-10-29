@@ -52,7 +52,7 @@ Ouvrez **⚙ Réglages** :
 
 Les abonnements Claude (Pro, Max) et ChatGPT (Plus, Pro) ne donnent pas de clé API. Mais ils fonctionnent avec les agents en ligne de commande, comme [Claude Code](https://claude.com/claude-code) ou [Codex CLI](https://github.com/openai/codex).
 
-Dans **Générer la doc**, le bouton **📦 Exporter pour un agent** produit un dossier de session `.docmate/session-<date>-<heure>/` à la racine du site :
+Dans **Générer la doc**, le bouton **📦 Exporter pour un agent** produit un dossier de session `_docmate/session-<date>-<heure>/` à la racine du site :
 
 - `CONSIGNES.md` : la mission (où écrire le document, où copier les médias, front matter, gabarits) et les règles de style ;
 - `timeline.md` : la timeline horodatée (paroles, repères, notes) avec le chemin de chaque média ;
@@ -61,10 +61,10 @@ Dans **Générer la doc**, le bouton **📦 Exporter pour un agent** produit un 
 Sous Chrome, Edge ou Opera, le dossier est écrit directement dans le site. Ailleurs, on obtient un ZIP à décompresser à la racine. Ensuite, dans un terminal ouvert dans le dossier du site :
 
 ```bash
-claude "Lis le fichier .docmate/session-…/CONSIGNES.md et suis ses instructions"
+claude "Lis le fichier _docmate/session-…/CONSIGNES.md et suis ses instructions"
 ```
 
-La transcription reste faite par DocMate. Choisissez **Whisper dans le navigateur** pour n'avoir aucune clé à fournir. Ajoutez `.docmate/` au `.gitignore` du site.
+La transcription reste faite par DocMate. Choisissez **Whisper dans le navigateur** pour n'avoir aucune clé à fournir. Ajoutez `_docmate/` au `.gitignore` du site.
 
 ### Ollama (100 % local)
 
