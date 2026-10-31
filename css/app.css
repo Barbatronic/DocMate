@@ -1889,3 +1889,13 @@ body.phone {
   color: var(--success);
   font-weight: 700;
 }
+#mcp-setup {
+  margin-top: 8px;
+}
+#mcp-setup p {
+  margin: 10px 0 6px;
+}
+#mcp-setup code {
+  display: block;
+  margin-bottom: 6px;
+}

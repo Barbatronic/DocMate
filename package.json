@@ -2,12 +2,23 @@
   "name": "docmate",
   "private": true,
   "type": "module",
-  "description": "DocMate : l'application n'a ni build ni dépendance. Ce fichier ne sert qu'au serveur de développement et aux tests.",
+  "description": "DocMate : l'application n'a ni build ni dépendance. Ce fichier sert au serveur MCP local (npx github:Barbatronic/DocMate), au serveur de développement et aux tests.",
+  "bin": {
+    "docmate-mcp": "mcp/server.mjs"
+  },
+  "files": [
+    "mcp/",
+    "js/ai/draft-schema.js"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "serve": "node tests/serve.mjs",
     "test": "playwright test --grep-invert @network",
     "test:all": "playwright test",
-    "test:phone": "playwright test --grep @network"
+    "test:phone": "playwright test --grep @network",
+    "mcp": "node mcp/server.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1"

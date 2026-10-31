@@ -1,14 +1,16 @@
-// Réglages, stockés dans le localStorage du navigateur (clés API comprises : jamais envoyées ailleurs
-// qu'au fournisseur choisi).
+// Réglages, stockés dans le localStorage du navigateur (clés API facultatives comprises : jamais
+// envoyées ailleurs qu'au fournisseur choisi).
 import { PRESETS } from '../output/profiles.js';
 
 const KEY = 'docmate.settings';
 
 const DEFAULTS = {
+  v: 2, // 2 : MCP et Whisper local par défaut (aucune clé à fournir)
   lang: '',
   theme: '', // '' (système) | light | dark
   agent: {
-    provider: 'anthropic', // anthropic | openai | ollama
+    provider: 'mcp', // mcp (outil d'IA de l'utilisateur, sans clé) | anthropic | openai | ollama
+    mcpPort: 8777,
     anthropicModel: 'claude-opus-5-5',
     anthropicEffort: 'high',
     anthropicKey: '',
@@ -21,7 +23,7 @@ const DEFAULTS = {
     imagePx: 1280,
   },
   transcription: {
-    provider: 'openai', // openai | local | none
+    provider: 'local', // local | openai | none
     auto: true, // transcrire chaque segment dès la fin de la narration
     openaiModel: 'whisper-1',
     openaiBaseUrl: '',
@@ -59,13 +61,24 @@ export let S = load();
 
 function load() {
   try {
-    const s = merge(structuredClone(DEFAULTS), JSON.parse(localStorage.getItem(KEY) || '{}'));
+    const stored = JSON.parse(localStorage.getItem(KEY) || '{}');
+    const s = merge(structuredClone(DEFAULTS), stored);
     if (OLD_DEFAULT_MODELS.includes(s.agent.anthropicModel)) s.agent.anthropicModel = DEFAULTS.agent.anthropicModel;
+    if (stored.agent && !stored.v) fromV1(s);
     return s;
   } catch (e) {
     console.error('Réglages illisibles, valeurs par défaut utilisées', e);
     return structuredClone(DEFAULTS);
   }
+}
+
+// Avant la v2, Anthropic et l'API Whisper étaient proposés par défaut : un fournisseur resté sans clé
+// passe à MCP (rédaction) et à Whisper local (transcription). Une seule fois : un choix fait ensuite est gardé.
+function fromV1(s) {
+  const a = s.agent;
+  if ((a.provider === 'anthropic' && !a.anthropicKey) || (a.provider === 'openai' && !a.openaiKey && !a.openaiBaseUrl)) a.provider = 'mcp';
+  const tr = s.transcription;
+  if (tr.provider === 'openai' && !tr.openaiKey && !a.openaiKey && !tr.openaiBaseUrl) tr.provider = 'local';
 }
 
 export function save() {

@@ -7,6 +7,8 @@ import { addTile, photo, clip, clipping } from '../capture/cameras.js';
 import { narrator, narrate, screenshot, addMarker, addNote, recording, workMs } from '../capture/recorder.js';
 import { micSource } from '../capture/mic.js';
 import { phonesConnected } from '../phone/remote.js';
+import { mcp } from '../ai/mcp.js';
+import { S } from '../core/settings.js';
 import { askNewSession, openSessionsDialog } from './sessions-dialog.js';
 import { pip } from './pip.js';
 
@@ -20,6 +22,13 @@ function renderStatus() {
   $('#st-session').textContent = t(rec ? 'st.rec' : 'st.ready');
   $('#st-mic').textContent = t(micSource() === 'phone' ? 'st.micPhone' : 'st.micPc');
   $('#st-phone').textContent = phonesConnected() ? t('st.phoneN', { n: phonesConnected() }) : t('st.phoneNone');
+}
+
+// Outil d'IA de l'utilisateur (MCP) : affiché seulement si c'est le fournisseur choisi.
+function renderMcp() {
+  $('#st-mcp-item').hidden = S.agent.provider !== 'mcp';
+  $('#st-mcp-dot').className = 'dot ' + (mcp.connected ? 'ok' : 'warn');
+  $('#st-mcp').textContent = t(mcp.connected ? 'st.mcpOn' : 'st.mcpOff');
 }
 
 function renderTitle() {
@@ -83,6 +92,7 @@ export function initToolbar() {
     // Titre changé ailleurs (dialogue de génération) ; jamais pendant qu'on le tape.
     if (document.activeElement !== $('#session-title')) renderTitle();
   });
-  on('session', () => { renderTitle(); renderStatus(); });
+  on('session', () => { renderTitle(); renderStatus(); renderMcp(); });
+  on('mcp', renderMcp);
   on('level', (lvl) => $('#btn-narrate .level i').style.setProperty('--lvl', lvl));
 }

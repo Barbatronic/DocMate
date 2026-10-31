@@ -111,6 +111,7 @@
     <span class="item" data-i18n-title="st.work" title="Temps de travail de la session (les pauses de plus de 30 min ne comptent pas)"><span id="session-timer" class="timer">00:00:00</span></span>
     <span class="item" id="st-mic-item"><i data-icon="mic"></i><span id="st-mic" data-i18n="st.micPc">Micro du PC</span></span>
     <span class="item"><i data-icon="phone"></i><span id="st-phone" data-i18n="st.phoneNone">Aucun téléphone</span></span>
+    <span class="item" id="st-mcp-item" hidden><span id="st-mcp-dot" class="dot"></span><span id="st-mcp"></span></span>
     <span class="help-text" data-i18n="cams.hint">Raccourcis (page active) : P photo · V clip · M repère · N narration · S capture</span>
   </footer>
 </div>
@@ -154,6 +155,21 @@
       </div>
     </div>
     <pre id="gen-log" class="log" hidden></pre>
+    <div id="mcp-help" class="handoff" hidden>
+      <p><span id="mcp-status" class="pill"></span></p>
+      <p data-i18n="gen.mcpHow">Dans votre outil d'IA (Claude Desktop, Claude Code, Cursor, VS Code…), demandez :</p>
+      <div class="row"><code id="mcp-prompt" class="mono" data-i18n="gen.mcpPrompt">Rédige la doc de ma session DocMate</code><button id="btn-copy-mcp" type="button" class="btn small"><i data-icon="copy"></i><span data-i18n="gen.copy">Copier</span></button></div>
+      <p class="hint" data-i18n="gen.mcpBack">Le brouillon arrive ici pour relecture. DocMate l'écrit ensuite dans le site.</p>
+      <details id="mcp-setup">
+        <summary data-i18n="gen.mcpSetup">Brancher DocMate à votre outil d'IA (une seule fois)</summary>
+        <p data-i18n="gen.mcpCli">Claude Code ou Codex CLI, dans un terminal :</p>
+        <code class="mono">claude mcp add docmate -- npx -y github:Barbatronic/DocMate</code>
+        <code class="mono">codex mcp add docmate -- npx -y github:Barbatronic/DocMate</code>
+        <p data-i18n="gen.mcpJson">Claude Desktop, Cursor, VS Code… : ajoutez à la configuration MCP de l'outil :</p>
+        <code class="mono">{ "mcpServers": { "docmate": { "command": "npx", "args": ["-y", "github:Barbatronic/DocMate"] } } }</code>
+        <p class="hint" data-i18n="gen.mcpNode">Il faut Node.js 22 ou plus. Relancez l'outil d'IA : il démarre le serveur DocMate, et cette page s'y connecte (le navigateur peut demander l'autorisation d'accéder aux appareils du réseau local).</p>
+      </details>
+    </div>
     <div id="handoff-result" class="handoff" hidden>
       <p data-i18n="gen.handoffHow">Ouvrez un terminal dans le dossier du site, lancez votre agent (claude, codex…) et collez :</p>
       <div class="row"><code id="handoff-prompt" class="mono"></code><button id="btn-copy-prompt" type="button" class="btn small"><i data-icon="copy"></i><span data-i18n="gen.copy">Copier</span></button></div>
@@ -204,10 +220,15 @@
     <section class="tab-pane grid2" data-pane="ai">
       <label class="span2"><span data-i18n="set.provider">Fournisseur</span>
         <select data-k="agent.provider">
-          <option value="anthropic">Anthropic · Claude</option>
-          <option value="openai">OpenAI (ou API compatible)</option>
-          <option value="ollama">Ollama (local, gratuit)</option>
+          <option value="mcp" data-i18n="set.mcpOption">Mon outil d'IA via MCP (Claude, Cursor, VS Code… : mon compte, sans clé)</option>
+          <option value="ollama" data-i18n="set.ollamaOption">Ollama (local, gratuit)</option>
+          <optgroup label="Avec une clé API" data-i18n-label="set.withKey">
+            <option value="anthropic">Anthropic · Claude</option>
+            <option value="openai" data-i18n="set.openaiOption">OpenAI (ou API compatible)</option>
+          </optgroup>
         </select></label>
+      <p class="hint span2" data-show="agent.provider=mcp" data-i18n="set.mcpHint">Votre outil d'IA (Claude Desktop, Claude Code, Cursor, VS Code, Codex…) se connecte à DocMate et rédige avec votre compte. Mise en route : « Générer la doc ».</p>
+      <label data-show="agent.provider=mcp"><span data-i18n="set.mcpPort">Port du serveur DocMate</span><input type="number" min="1024" max="65535" data-k="agent.mcpPort"></label>
       <label data-show="agent.provider=anthropic"><span data-i18n="set.model">Modèle</span><input data-k="agent.anthropicModel"></label>
       <label data-show="agent.provider=anthropic"><span data-i18n="set.effort">Effort</span>
         <select data-k="agent.anthropicEffort"><option>low</option><option>medium</option><option>high</option><option>xhigh</option><option>max</option></select></label>
@@ -218,16 +239,16 @@
       <label data-show="agent.provider=ollama"><span>URL Ollama</span><input data-k="agent.ollamaUrl"></label>
       <label data-show="agent.provider=ollama"><span data-i18n="set.modelVision">Modèle (avec vision)</span><input data-k="agent.ollamaModel"></label>
       <p class="hint span2" data-show="agent.provider=ollama" data-i18n="set.ollamaHint">Ollama doit autoriser cette page : lancez-le avec OLLAMA_ORIGINS réglé sur l'adresse de DocMate (voir le README).</p>
-      <label><span data-i18n="set.maxImages">Images max envoyées</span><input type="number" min="1" max="200" data-k="agent.maxImages"></label>
+      <label data-show="agent.provider=anthropic|openai|ollama"><span data-i18n="set.maxImages">Images max envoyées</span><input type="number" min="1" max="200" data-k="agent.maxImages"></label>
       <label><span data-i18n="set.imagePx">Taille des images pour l'IA (px)</span><input type="number" min="256" max="2048" step="64" data-k="agent.imagePx"></label>
-      <p class="hint span2" data-i18n="set.keysHint">Les clés sont stockées uniquement dans ce navigateur et envoyées seulement au fournisseur choisi.</p>
+      <p class="hint span2" data-show="agent.provider=anthropic|openai" data-i18n="set.keysHint">Les clés sont stockées uniquement dans ce navigateur et envoyées seulement au fournisseur choisi.</p>
     </section>
 
     <section class="tab-pane grid2" data-pane="stt" hidden>
       <label class="span2"><span data-i18n="set.provider">Fournisseur</span>
         <select data-k="transcription.provider">
-          <option value="openai">API Whisper (OpenAI ou compatible, ex. Groq)</option>
           <option value="local">Whisper dans le navigateur (local, gratuit, plus lent)</option>
+          <option value="openai">API Whisper (OpenAI ou compatible, ex. Groq) · clé API</option>
           <option value="none">Aucune (pas de narration)</option>
         </select></label>
       <label data-show="transcription.provider=openai"><span data-i18n="set.model">Modèle</span><input data-k="transcription.openaiModel"></label>

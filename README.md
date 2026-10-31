@@ -1,6 +1,6 @@
 # DocMate
 
-**L'assistant de documentation des makers.** Vous travaillez, DocMate capture : webcams, photos du téléphone, captures d'écran de la CAO, et votre voix qui explique ce que vous faites. À la fin, une IA de votre choix rédige la doc en Markdown, images rangées au bon endroit, prête pour votre site (Jekyll, ou simple dossier Markdown).
+**L'assistant de documentation des makers.** Vous travaillez, DocMate capture : webcams, photos du téléphone, captures d'écran de la CAO, et votre voix qui explique ce que vous faites. À la fin, votre outil d'IA habituel (Claude, Cursor, VS Code…, avec votre propre compte) rédige la doc en Markdown, images rangées au bon endroit, prête pour votre site (Jekyll, ou simple dossier Markdown).
 
 100 % web, rien à installer : ouvrez la page, c'est parti. Hébergé sur GitHub Pages.
 
@@ -22,8 +22,8 @@
 | Narration | Enregistrement continu, découpé en segments de 10 min, sauvegardé toutes les 5 s : rien n'est perdu si l'onglet se ferme ou plante |
 | Téléphone | Scannez le QR code (lien privé, valable tant que l'onglet DocMate reste ouvert). Le téléphone devient une **télécommande** (narration, photo et clip des webcams, repère, capture), un **micro sans fil** pour la narration, une **caméra en direct**, et envoie ses photos, vidéos et notes directement au PC (WebRTC) |
 | Captures d'écran | Dossier surveillé (vos raccourcis habituels, ex. Impr. écran), bouton Capture (partage d'écran), coller (Ctrl+V), glisser-déposer |
-| Transcription | API Whisper (OpenAI, Groq ou compatible) ou **Whisper dans le navigateur** (gratuit, hors ligne) |
-| IA de rédaction | **Claude** (Anthropic), **OpenAI** ou API compatible, **Ollama** (local, gratuit), ou **export pour un agent** (Claude Code, Codex CLI…) pour utiliser un abonnement sans clé API |
+| Transcription | **Whisper dans le navigateur** (gratuit, hors ligne), ou API Whisper (OpenAI, Groq ou compatible) avec une clé |
+| IA de rédaction | **Votre outil d'IA via MCP** (Claude Desktop, Claude Code, Cursor, VS Code, Codex…) : il rédige avec votre compte, sans clé API dans DocMate. Aussi : **Ollama** (local, gratuit), **export pour un agent**, ou en option une clé API Anthropic ou OpenAI |
 | Sortie | Profils configurables : Jekyll `_posts`, Jekyll collection de logs par projet, Markdown simple. Importables / exportables en JSON |
 | Style | Donnez 2 ou 3 de vos docs : l'IA imite votre ton. Avec un dossier de site, les docs récentes du projet sont prises automatiquement |
 | Barre flottante | Mini-barre Photo / Clip / Repère / Narration toujours au-dessus de la CAO |
@@ -43,10 +43,41 @@ DocMate détecte les fonctions disponibles et l'indique au démarrage.
 
 Ouvrez **⚙ Réglages** :
 
-- **IA** : choisissez le fournisseur et collez votre clé API ([Anthropic](https://console.anthropic.com/), [OpenAI](https://platform.openai.com/api-keys)). Les clés restent dans votre navigateur et ne sont envoyées qu'au fournisseur choisi.
-- **Transcription** : API Whisper (réutilise la clé OpenAI par défaut) ou Whisper local (le modèle se télécharge au premier usage).
+- **IA** : par défaut, **Mon outil d'IA via MCP** (voir ci-dessous). En option, une clé API ([Anthropic](https://console.anthropic.com/), [OpenAI](https://platform.openai.com/api-keys)) : elle reste dans votre navigateur et n'est envoyée qu'au fournisseur choisi.
+- **Transcription** : Whisper local par défaut (le modèle se télécharge au premier usage), ou API Whisper avec une clé.
 - **Profil de sortie** : où ranger le document et les médias, front matter, gabarits d'image et de vidéo.
 - **Capture** : micro, son des clips, dossier de captures d'écran à surveiller.
+
+### Votre outil d'IA via MCP (sans clé API)
+
+DocMate se branche sur l'outil d'IA que vous utilisez déjà, avec votre compte (abonnement Claude, Cursor, Copilot…) grâce au protocole [MCP](https://modelcontextprotocol.io/). L'outil lit la session (timeline, narration, photos), rédige, et renvoie le brouillon à DocMate. Vous le relisez, puis DocMate l'écrit dans votre site comme d'habitude.
+
+Une seule fois, déclarez le serveur DocMate dans votre outil (il faut [Node.js](https://nodejs.org/) 22 ou plus) :
+
+```bash
+claude mcp add docmate -- npx -y github:Barbatronic/DocMate   # Claude Code
+codex mcp add docmate -- npx -y github:Barbatronic/DocMate    # Codex CLI
+```
+
+Claude Desktop, Cursor, VS Code et les autres : ajoutez à leur configuration MCP (pour Claude Desktop, *Réglages › Développeur › Modifier la configuration*) :
+
+```json
+{ "mcpServers": { "docmate": { "command": "npx", "args": ["-y", "github:Barbatronic/DocMate"] } } }
+```
+
+Ensuite :
+
+1. Dans DocMate, **Générer la doc › Rédiger avec mon IA**. La page se connecte au serveur lancé par votre outil d'IA (la barre d'état indique **IA connectée**). Le navigateur peut demander l'autorisation d'accéder aux appareils du réseau local : acceptez, c'est votre propre machine (`127.0.0.1`).
+2. Dans votre outil d'IA, demandez : « Rédige la doc de ma session DocMate ». Le prompt `rediger` du serveur fait la même chose (dans Claude Code : `/mcp__docmate__rediger`).
+3. Le brouillon s'affiche dans DocMate : relisez, corrigez, puis **Écrire dans le dossier du site** ou **ZIP**.
+
+Outils exposés : `get_session` (sujet, contenu, consignes de rédaction et style), `get_timeline`, `get_images`, `transcribe`, `submit_draft`.
+
+Détails :
+
+- Le serveur écoute sur `127.0.0.1:8777` et n'accepte que les pages DocMate (barbatronic.fr, barbatronic.github.io, localhost). Autre adresse (fork, hébergement perso) : variable `DOCMATE_ORIGINS`. Autre port : `DOCMATE_PORT`, et le même port dans **Réglages › IA**.
+- Plusieurs outils d'IA à la fois (ex. Claude Desktop et Claude Code) : le premier lancé fait le relais, les autres passent par lui.
+- Testé sous Chrome et Chromium. Firefox autorise aussi les connexions vers `127.0.0.1` depuis une page https.
 
 ### Sans clé API : export pour un agent
 
@@ -94,15 +125,16 @@ Les documents sont créés avec `published: false` : relisez avant de publier.
 
 - Aucun serveur DocMate : les sessions, médias et clés restent dans votre navigateur (IndexedDB, localStorage).
 - Les médias du téléphone vont directement au PC en WebRTC. Le serveur public [PeerJS](https://peerjs.com/) ne sert qu'à la mise en relation.
-- Seuls la transcription et les images (réduites) partent au fournisseur d'IA que vous choisissez. Avec Whisper local et Ollama, rien ne quitte votre machine.
+- Seuls la transcription et les images (réduites) partent au fournisseur d'IA que vous choisissez. Avec MCP, c'est votre outil d'IA qui les demande à DocMate, par une connexion locale (`127.0.0.1`), puis les envoie à son fournisseur avec votre compte. Avec Whisper local et Ollama, rien ne quitte votre machine.
 
 ## Développement
 
-Aucune étape de build : HTML, CSS et modules JavaScript, servis tels quels (GitHub Pages). Les bibliothèques (SDK Anthropic et OpenAI, PeerJS, fflate, transformers.js, qrcode-generator) sont chargées depuis jsDelivr avec une version figée. Le `package.json` ne sert qu'au serveur de développement et aux tests.
+Aucune étape de build : HTML, CSS et modules JavaScript, servis tels quels (GitHub Pages). Le serveur MCP (`mcp/server.mjs`) est un script Node sans dépendance. Les bibliothèques (SDK Anthropic et OpenAI, PeerJS, fflate, transformers.js, qrcode-generator) sont chargées depuis jsDelivr avec une version figée. Le `package.json` ne sert qu'au serveur de développement et aux tests.
 
 ```bash
 npm install        # une fois : outils de test (Playwright)
 npm run serve      # http://localhost:8765 (PORT=… pour un autre port)
+npm run mcp        # serveur MCP local, pour l'essayer à la main (un outil d'IA le lance lui-même)
 ```
 
 Le serveur de développement désactive le cache : un rechargement prend toujours les derniers modules. Les caméras et le micro exigent `localhost` ou `https` ; ouverte en `file://`, la page ne peut pas charger ses modules.
@@ -116,9 +148,11 @@ js/
   session/     session courante et ses éléments (seule source de vérité), transcription des narrations
   capture/     tuiles caméra et PTZ, micro, narration, écran, import de fichiers, état d'enregistrement
   phone/       protocole WebRTC, liaison côté PC, télécommande, page téléphone
-  ai/          rédaction par l'IA, transcription (API ou Whisper local dans un worker)
+  ai/          rédaction par l'IA (MCP ou API), transcription (Whisper local dans un worker, ou API)
   output/      profils de sortie, export Markdown / ZIP, export pour un agent
   ui/          barre d'outils et d'état, timeline, vue détaillée, barre flottante, dialogues
+mcp/
+  server.mjs   serveur MCP local (Node) : stdio côté outil d'IA, WebSocket côté onglet (js/ai/mcp.js)
 ```
 
 Les dépendances vont dans un seul sens : `core` ← `session` ← `capture` / `phone` ← `ui`. Les modules se préviennent par le bus (`core/bus.js`, liste des événements en tête du fichier) : une capture appelle `addEvent()`, qui annonce `event:added`, et la timeline, la barre d'état, la barre flottante et la télécommande du téléphone se mettent à jour d'elles-mêmes.
@@ -129,6 +163,7 @@ Repères :
 - Ajouter un réglage : valeur par défaut dans `core/settings.js`, champ `data-k="chemin.du.réglage"` dans le dialogue des réglages (`index.html`).
 - Libellés : le HTML est en français ; traductions et textes affichés par le code dans `core/i18n.js`.
 - Couleurs et composants : jetons repris de VibeCAD en tête de `css/app.css`.
+- Ajouter un outil MCP : sa description dans `TOOLS` de `mcp/server.mjs`, son traitement dans `TOOLS` de `js/ai/mcp.js` (c'est l'onglet qui fait le travail, le serveur ne fait que transmettre).
 - `ai/whisper-worker.js` modifié : incrémenter `WORKER_VERSION` dans `ai/transcribe.js` (le navigateur garde les workers en cache).
 
 ### Tests
@@ -148,9 +183,9 @@ Contributions bienvenues : nouveaux profils (Hugo, MkDocs, Docusaurus…), tradu
 
 ## English
 
-**DocMate is a documentation assistant for makers.** While you work, it captures your webcams, phone photos, CAD screenshots and your voice explaining what you do. At the end, the AI of your choice (Claude, OpenAI, or local Ollama) writes the Markdown doc with media placed where they belong, ready for your Jekyll site or a plain Markdown folder. Everything is timestamped on one timeline, so the AI knows which photo goes with which sentence.
+**DocMate is a documentation assistant for makers.** While you work, it captures your webcams, phone photos, CAD screenshots and your voice explaining what you do. At the end, the AI tool you already use (Claude Desktop, Claude Code, Cursor, VS Code, Codex…) writes the Markdown doc with your own account, through MCP with media placed where they belong, ready for your Jekyll site or a plain Markdown folder. Everything is timestamped on one timeline, so the AI knows which photo goes with which sentence.
 
-Fully web-based, nothing to install, hosted on GitHub Pages. Bring your own API key (stored only in your browser), or stay 100 % local with in-browser Whisper and Ollama. Chromium browsers write straight into your site folder; Firefox and Safari get a ZIP. The interface is available in English (⚙ Settings › Capture › Language).
+Fully web-based, nothing to install, hosted on GitHub Pages. No API key needed: add the DocMate MCP server to your AI tool once (`claude mcp add docmate -- npx -y github:Barbatronic/DocMate`, or the JSON config shown above for Claude Desktop, Cursor and VS Code), click **Generate the doc › Write with my AI**, then ask your tool to write the doc of your DocMate session. The draft comes back to DocMate for review. API keys (Anthropic, OpenAI) remain available as an option, or stay 100 % local with in-browser Whisper and Ollama. Chromium browsers write straight into your site folder; Firefox and Safari get a ZIP. The interface is available in English (⚙ Settings › Capture › Language).
 
 ## Licence
 

@@ -1,40 +1,13 @@
 // Agent de rédaction : timeline horodatée (paroles + médias) -> brouillon structuré (JSON).
-// Fournisseurs : Anthropic (Claude), OpenAI ou compatible, Ollama (local).
+// Fournisseurs : Anthropic (Claude), OpenAI ou compatible, Ollama (local). Sans clé : MCP (ai/mcp.js).
 import { S, profile } from '../core/settings.js';
 import { getBlob } from '../core/store.js';
 import { shrink } from '../capture/media.js';
 import { workTime } from '../output/export.js';
+import { DRAFT_SCHEMA } from './draft-schema.js';
 
 const ANTHROPIC_SDK = 'https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@1.3.0/+esm';
 const OPENAI_SDK = 'https://cdn.jsdelivr.net/npm/openai@7.45.1/+esm';
-
-export const DRAFT_SCHEMA = {
-  type: 'object',
-  properties: {
-    title: { type: 'string', description: 'Titre court du document' },
-    slug: { type: 'string', description: 'kebab-case ASCII, 3 à 6 mots' },
-    description: { type: 'string', description: 'Une ou deux phrases de résumé' },
-    state: { type: 'string', description: "État à la fin de la session (ex. « en cours », « OK », « à corriger »), vide si inconnu" },
-    next_step: { type: 'string', description: 'Prochaine étape évoquée, vide si rien' },
-    body: { type: 'string', description: 'Corps Markdown, sans front matter, avec les marqueurs [[media:ID]]' },
-    media: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          id: { type: 'string' },
-          filename: { type: 'string', description: 'kebab-case ASCII sans extension' },
-          alt: { type: 'string' },
-          caption: { type: 'string' },
-        },
-        required: ['id', 'filename', 'alt', 'caption'],
-        additionalProperties: false,
-      },
-    },
-  },
-  required: ['title', 'slug', 'description', 'state', 'next_step', 'body', 'media'],
-  additionalProperties: false,
-};
 
 const hhmmss = (ms) => {
   const s = Math.max(0, Math.round(ms / 1000));
@@ -154,7 +127,7 @@ export async function buildTimeline(session, events, onProgress, { embed = true 
   return parts;
 }
 
-const toB64 = (blob) =>
+export const toB64 = (blob) =>
   new Promise((r) => {
     const fr = new FileReader();
     fr.onload = () => r(fr.result.split(',')[1]);

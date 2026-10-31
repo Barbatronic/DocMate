@@ -1,4 +1,4 @@
-// Libellés FR / EN. Le HTML contient le français par défaut (attributs data-i18n, data-i18n-ph, data-i18n-title).
+// Libellés FR / EN. Le HTML contient le français par défaut (attributs data-i18n, data-i18n-ph, data-i18n-title, data-i18n-label).
 // Ajouter une langue : copier le bloc `en`, traduire, et l'ajouter au sélecteur de langue.
 
 const fr = {
@@ -68,6 +68,14 @@ const fr = {
   'gen.handoffZip': 'ZIP téléchargé : décompressez-le à la racine du site (il crée {path}/).',
   'gen.handoffDone': 'Dossier de session prêt ({n} fichiers).',
   'gen.copied': 'Copié',
+  'gen.run': 'Générer',
+  'gen.runMcp': 'Rédiger avec mon IA',
+  'gen.mcpReceived': "Brouillon reçu de votre outil d'IA. Relisez, corrigez, puis écrivez ou téléchargez.",
+  'mcp.on': 'Outil d\'IA connecté',
+  'mcp.off': 'En attente de votre outil d\'IA (serveur DocMate non joignable)',
+  'mcp.replaced': 'Outil d\'IA relié à un autre onglet DocMate',
+  'st.mcpOn': 'IA connectée',
+  'st.mcpOff': 'IA non connectée',
   'set.noShots': 'Aucun dossier surveillé.',
   'set.shots': 'Dossier surveillé : {name}',
   'set.copy': 'copie',
@@ -209,6 +217,23 @@ const en = {
   'gen.handoffZip': 'ZIP downloaded: unzip it at the root of the site (it creates {path}/).',
   'gen.handoffDone': 'Session folder ready ({n} files).',
   'gen.copy': 'Copy', 'gen.copied': 'Copied',
+  'gen.runMcp': 'Write with my AI',
+  'gen.mcpReceived': 'Draft received from your AI tool. Review, fix, then write or download.',
+  'gen.mcpHow': 'In your AI tool (Claude Desktop, Claude Code, Cursor, VS Code…), ask:',
+  'gen.mcpPrompt': 'Write the doc for my DocMate session',
+  'gen.mcpBack': 'The draft comes back here for review. DocMate then writes it to the site.',
+  'gen.mcpSetup': 'Connect DocMate to your AI tool (once)',
+  'gen.mcpCli': 'Claude Code or Codex CLI, in a terminal:',
+  'gen.mcpJson': 'Claude Desktop, Cursor, VS Code…: add to the tool\'s MCP configuration:',
+  'gen.mcpNode': 'Requires Node.js 22 or later. Restart the AI tool: it starts the DocMate server and this page connects to it (the browser may ask permission to access devices on the local network).',
+  'mcp.on': 'AI tool connected',
+  'mcp.off': 'Waiting for your AI tool (DocMate server unreachable)',
+  'mcp.replaced': 'AI tool linked to another DocMate tab',
+  'st.mcpOn': 'AI connected', 'st.mcpOff': 'AI not connected',
+  'set.mcpOption': 'My AI tool via MCP (Claude, Cursor, VS Code…: my account, no key)',
+  'set.ollamaOption': 'Ollama (local, free)', 'set.openaiOption': 'OpenAI (or compatible API)', 'set.withKey': 'With an API key',
+  'set.mcpHint': 'Your AI tool (Claude Desktop, Claude Code, Cursor, VS Code, Codex…) connects to DocMate and writes with your account. Setup: “Generate the doc”.',
+  'set.mcpPort': 'DocMate server port',
   'sess.title': 'Sessions',
   'set.title': 'Settings', 'set.ai': 'AI', 'set.stt': 'Transcription', 'set.out': 'Output profile', 'set.cap': 'Capture',
   'set.provider': 'Provider', 'set.model': 'Model', 'set.effort': 'Effort', 'set.key': 'API key',
@@ -255,6 +280,7 @@ export function applyI18n(root = document) {
   root.querySelectorAll('[data-i18n]').forEach((el) => { const v = DICTS[lang][el.dataset.i18n]; if (v) el.textContent = v; });
   root.querySelectorAll('[data-i18n-ph]').forEach((el) => { const v = DICTS[lang][el.dataset.i18nPh]; if (v) el.placeholder = v; });
   root.querySelectorAll('[data-i18n-title]').forEach((el) => { const v = DICTS[lang][el.dataset.i18nTitle]; if (v) el.title = v; });
+  root.querySelectorAll('[data-i18n-label]').forEach((el) => { const v = DICTS[lang][el.dataset.i18nLabel]; if (v) el.label = v; });
 }
 
 export const currentLang = () => lang;

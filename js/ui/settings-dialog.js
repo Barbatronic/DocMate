@@ -5,6 +5,7 @@ import { t } from '../core/i18n.js';
 import { $, $$, esc, toast } from '../core/dom.js';
 import { exportProfile, importProfile } from '../output/profiles.js';
 import { pickShotsFolder, shotsFolder } from '../capture/recorder.js';
+import { reconnectMcp } from '../ai/mcp.js';
 
 const getPath = (path) => path.split('.').reduce((o, k) => o?.[k], S);
 const setPath = (path, v) => {
@@ -34,16 +35,17 @@ function bindSettings() {
       showHide();
       if (el.dataset.k === 'lang') location.reload();
       if (el.dataset.k === 'theme') applyTheme();
+      if (el.dataset.k === 'agent.provider' || el.dataset.k === 'agent.mcpPort') reconnectMcp();
     };
   });
   showHide();
 }
 
-// Champs qui dépendent d'un choix (data-show="agent.provider=ollama").
+// Champs qui dépendent d'un choix (data-show="agent.provider=ollama", ou plusieurs : « =anthropic|openai »).
 function showHide() {
   $$('[data-show]').forEach((el) => {
     const [k, v] = el.dataset.show.split('=');
-    el.hidden = getPath(k) !== v;
+    el.hidden = !v.split('|').includes(getPath(k));
   });
 }
 

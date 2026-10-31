@@ -9,6 +9,7 @@
 //   level         lvl  niveau du micro pendant la narration (0 à 1)
 //   detail        ev   élément ouvert dans la vue détaillée (null : retour aux caméras)
 //   open          ev   demande d'ouverture d'un élément dans la vue détaillée
+//   mcp           {connected, replaced}   liaison avec l'outil d'IA de l'utilisateur (ai/mcp.js) changée
 
 const listeners = new Map();
 
